@@ -42,6 +42,7 @@ import de.danoeh.antennapod.storage.database.FeedDatabaseWriter;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.AuthenticationDialog;
 import de.danoeh.antennapod.ui.screen.feed.RenameFeedDialog;
+import de.danoeh.antennapod.ui.screen.playlists.FeedPlaylistPreference;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.MaybeOnSubscribe;
@@ -138,6 +139,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                     feedPreferences = feed.getPreferences();
 
                     setupPreferences();
+                    FeedPlaylistPreference.setup(findPreference("feedAddToPlaylist"), feed.getId());
                     updateAutoDeleteSummary();
                     updateAutoDownloadEnabledSummary();
                     updateNewEpisodesActionSummary();

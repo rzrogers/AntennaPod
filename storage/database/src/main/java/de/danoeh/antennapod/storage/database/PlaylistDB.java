@@ -8,9 +8,13 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.google.common.util.concurrent.Futures;
+
 import org.greenrobot.eventbus.EventBus;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +35,7 @@ import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLISTS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_FEEDS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_ITEMS;
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEED;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEEDITEM;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_ID;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_TITLE;
@@ -56,7 +61,8 @@ public final class PlaylistDB {
     }
 
     private static void prune(SQLiteDatabase db) {
-        db.execSQL("DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS + " WHERE " + KEY_FEEDITEM + " NOT IN (SELECT " + KEY_ID + " FROM " + TABLE_NAME_FEED_ITEMS + ")");
+        db.execSQL("DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS + " WHERE " + KEY_FEEDITEM
+                + " NOT IN (SELECT " + KEY_ID + " FROM " + TABLE_NAME_FEED_ITEMS + ")");
     }
 
     @NonNull
@@ -225,6 +231,53 @@ public final class PlaylistDB {
         } finally {
             db.endTransaction();
         }
+    }
+
+    public static synchronized long getFeedPlaylistId(long feedId) {
+        try (Cursor cursor = db().rawQuery("SELECT f." + KEY_PLAYLIST + " FROM " + TABLE_NAME_PLAYLIST_FEEDS
+                + " f INNER JOIN " + TABLE_NAME_PLAYLISTS + " p ON p." + KEY_ID + " = f." + KEY_PLAYLIST
+                + " WHERE f." + KEY_FEED + "=? LIMIT 1", new String[]{String.valueOf(feedId)})) {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        }
+    }
+
+    public static Future<?> setFeedPlaylist(long feedId, long playlistId) {
+        return runOnDbThread(() -> {
+            SQLiteDatabase db = db();
+            db.delete(TABLE_NAME_PLAYLIST_FEEDS, KEY_FEED + "=?", new String[]{String.valueOf(feedId)});
+            if (playlistId > 0) {
+                ContentValues values = new ContentValues();
+                values.put(KEY_FEED, feedId);
+                values.put(KEY_PLAYLIST, playlistId);
+                db.insert(TABLE_NAME_PLAYLIST_FEEDS, null, values);
+            }
+            EventBus.getDefault().post(new PlaylistEvent(playlistId));
+        });
+    }
+
+    public static Future<?> addNewFeedItems(long feedId, List<FeedItem> items) {
+        List<FeedItem> newItems = new ArrayList<>();
+        for (FeedItem item : items) {
+            if (item.getId() != 0 && item.hasMedia()) {
+                newItems.add(item);
+            }
+        }
+        if (newItems.isEmpty()) {
+            return Futures.immediateFuture(null);
+        }
+        newItems.sort(Comparator.comparing(FeedItem::getPubDate,
+                Comparator.nullsLast(Comparator.<Date>naturalOrder())));
+        List<Long> itemIds = new ArrayList<>();
+        for (FeedItem item : newItems) {
+            itemIds.add(item.getId());
+        }
+        return runOnDbThread(() -> {
+            long playlistId = getFeedPlaylistId(feedId);
+            if (playlistId > 0) {
+                insertItems(db(), playlistId, itemIds);
+                EventBus.getDefault().post(new PlaylistEvent(playlistId));
+            }
+        });
     }
 
     public static Future<?> removeItems(long playlistId, List<Long> itemIds) {

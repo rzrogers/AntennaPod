@@ -78,6 +78,12 @@
             android:summary="@string/global_default"
             android:title="@string/pref_new_episodes_action_title" />
 
+        <Preference
+            android:icon="@drawable/ic_playlist_add"
+            android:key="feedAddToPlaylist"
+            android:summary="@string/playlist_none_label"
+            android:title="@string/feed_add_to_playlist_title" />
+
         <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
             android:entries="@array/spnEnableAutoDownloadItems"
             android:entryValues="@array/spnEnableAutoDownloadValues"

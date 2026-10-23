@@ -62,6 +62,7 @@ public class SwipeActionsDialog {
         } else {
             keys.add(new AddToQueueSwipeAction());
         }
+        keys.add(new AddToPlaylistSwipeAction());
         if (!tag.equals(CompletedDownloadsFragment.TAG)) {
             keys.add(new StartDownloadSwipeAction());
         }

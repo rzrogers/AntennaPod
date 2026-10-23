@@ -59,6 +59,7 @@ public abstract class FeedDatabaseWriter {
         Feed resultFeed;
         List<FeedItem> unlistedItems = new ArrayList<>();
         List<FeedItem> itemsToAddToQueue = new ArrayList<>();
+        List<FeedItem> itemsToAddToPlaylist = new ArrayList<>();
 
         PodDBAdapter adapter = PodDBAdapter.getInstance();
         adapter.open();
@@ -158,6 +159,7 @@ public abstract class FeedDatabaseWriter {
                             || priorMostRecentDate.before(item.getPubDate())
                             || priorMostRecentDate.equals(item.getPubDate());
                     if (savedFeed.getState() == Feed.STATE_SUBSCRIBED && shouldPerformNewEpisodesAction) {
+                        itemsToAddToPlaylist.add(item);
                         FeedPreferences.NewEpisodesAction action = savedFeed.getPreferences().getNewEpisodesAction();
                         if (action == FeedPreferences.NewEpisodesAction.GLOBAL) {
                             action = UserPreferences.getNewEpisodesAction();
@@ -220,6 +222,9 @@ public abstract class FeedDatabaseWriter {
 
         // We need to add to queue after items are saved to database
         DBWriter.addQueueItem(context, itemsToAddToQueue.toArray(new FeedItem[0]));
+        if (savedFeed != null) {
+            PlaylistDB.addNewFeedItems(savedFeed.getId(), itemsToAddToPlaylist);
+        }
 
         adapter.close();
 

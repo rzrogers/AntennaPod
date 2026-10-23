@@ -39,6 +39,8 @@
     <string name="no_playlist_items_label">Long-press an episode anywhere in the app and choose \"Add to playlist…\".</string>
     <string name="removed_from_playlist_message">Removed from playlist</string>
     <string name="playlists_updated_message">Playlists updated</string>
+    <string name="feed_add_to_playlist_title">Add new episodes to playlist</string>
+    <string name="playlist_none_label">None</string>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
     <string name="downloads_label_short">Downloads</string>
