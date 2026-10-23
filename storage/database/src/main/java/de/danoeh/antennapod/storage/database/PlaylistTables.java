@@ -2,6 +2,10 @@ package de.danoeh.antennapod.storage.database;
 
 import android.database.sqlite.SQLiteDatabase;
 
+import de.danoeh.antennapod.model.feed.FeedItem;
+
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_READ;
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_ITEMS;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEED;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEEDITEM;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_ID;
@@ -45,6 +49,11 @@ public final class PlaylistTables {
                 + " ON " + TABLE_NAME_PLAYLIST_ITEMS + " (" + KEY_FEEDITEM + ")");
         db.execSQL("CREATE INDEX IF NOT EXISTS " + TABLE_NAME_PLAYLIST_FEEDS + "_" + KEY_FEED
                 + " ON " + TABLE_NAME_PLAYLIST_FEEDS + " (" + KEY_FEED + ")");
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + "_played"
+                + " AFTER UPDATE OF " + KEY_READ + " ON " + TABLE_NAME_FEED_ITEMS
+                + " WHEN NEW." + KEY_READ + " = " + FeedItem.PLAYED
+                + " BEGIN DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS
+                + " WHERE " + KEY_FEEDITEM + " = NEW." + KEY_ID + "; END");
     }
 
     static void removeItems(SQLiteDatabase db, String itemIds) {

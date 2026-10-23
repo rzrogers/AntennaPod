@@ -24,6 +24,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SynchronizationSettings;
 import de.danoeh.antennapod.ui.share.ShareDialog;
+import de.danoeh.antennapod.ui.screen.playlists.AddToPlaylistDialog;
 import de.danoeh.antennapod.ui.view.LocalDeleteModal;
 
 import org.greenrobot.eventbus.EventBus;
@@ -44,6 +45,8 @@ public class EpisodeMultiSelectActionHandler {
             queueChecked(items);
         } else if (actionId == R.id.remove_from_queue_item) {
             removeFromQueueChecked(items);
+        } else if (actionId == R.id.add_to_playlist_item) {
+            AddToPlaylistDialog.show(activity, items);
         } else if (actionId == R.id.remove_inbox_item) {
             removeFromInboxChecked(items);
         } else if (actionId == R.id.mark_read_item) {

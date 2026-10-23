@@ -10,6 +10,7 @@ import de.danoeh.antennapod.ui.screen.InboxFragment;
 import de.danoeh.antennapod.ui.screen.PlaybackHistoryFragment;
 import de.danoeh.antennapod.ui.screen.download.CompletedDownloadsFragment;
 import de.danoeh.antennapod.ui.screen.home.HomeFragment;
+import de.danoeh.antennapod.ui.screen.playlists.PlaylistsFragment;
 import de.danoeh.antennapod.ui.screen.queue.QueueFragment;
 import de.danoeh.antennapod.ui.screen.subscriptions.SubscriptionFragment;
 import de.danoeh.antennapod.ui.statistics.StatisticsFragment;
@@ -37,6 +38,8 @@ public abstract class NavigationNames {
                 return R.drawable.ic_add;
             case FavoritesFragment.TAG:
                 return R.drawable.ic_star;
+            case PlaylistsFragment.TAG:
+                return R.drawable.ic_playlists;
             default:
                 return 0;
         }
@@ -64,6 +67,8 @@ public abstract class NavigationNames {
                 return R.string.add_feed_label;
             case FavoritesFragment.TAG:
                 return R.string.favorite_episodes_label;
+            case PlaylistsFragment.TAG:
+                return R.string.playlists_label;
             case NavListAdapter.SUBSCRIPTION_LIST_TAG:
                 return R.string.subscriptions_list_label;
             default:
@@ -93,6 +98,8 @@ public abstract class NavigationNames {
                 return R.string.add_feed_label_short;
             case FavoritesFragment.TAG:
                 return R.string.favorite_episodes_label_short;
+            case PlaylistsFragment.TAG:
+                return R.string.playlists_label_short;
             case NavListAdapter.SUBSCRIPTION_LIST_TAG:
                 return R.string.subscriptions_list_label;
             default:
@@ -114,6 +121,8 @@ public abstract class NavigationNames {
                 return R.id.bottom_navigation_history;
             case FavoritesFragment.TAG:
                 return R.id.bottom_navigation_favorites;
+            case PlaylistsFragment.TAG:
+                return R.id.bottom_navigation_playlists;
             case AddFeedFragment.TAG:
                 return R.id.bottom_navigation_addfeed;
             case SubscriptionFragment.TAG:
@@ -139,6 +148,8 @@ public abstract class NavigationNames {
             return PlaybackHistoryFragment.TAG;
         } else if (id == R.id.bottom_navigation_favorites) {
             return FavoritesFragment.TAG;
+        } else if (id == R.id.bottom_navigation_playlists) {
+            return PlaylistsFragment.TAG;
         } else if (id == R.id.bottom_navigation_addfeed) {
             return AddFeedFragment.TAG;
         } else if (id == R.id.bottom_navigation_subscriptions) {
