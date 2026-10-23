@@ -772,6 +772,9 @@ public class PodDBAdapter {
                 values.clear();
                 values.put(KEY_READ, played);
                 db.update(TABLE_NAME_FEED_ITEMS, values, KEY_ID + "=?", new String[]{String.valueOf(item.getId())});
+                if (played == FeedItem.PLAYED) {
+                    PlaylistTables.removeItems(db, String.valueOf(item.getId()));
+                }
 
                 if (resetMediaPosition && item.hasMedia()) {
                     values.clear();

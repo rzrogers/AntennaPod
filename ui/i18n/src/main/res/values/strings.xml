@@ -39,7 +39,6 @@
     <string name="no_playlist_items_label">Long-press an episode anywhere in the app and choose \"Add to playlist…\".</string>
     <string name="removed_from_playlist_message">Removed from playlist</string>
     <string name="playlists_updated_message">Playlists updated</string>
-    <string name="playlist_played_episodes_skipped">Finished episodes can\'t be added to a playlist</string>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
     <string name="downloads_label_short">Downloads</string>

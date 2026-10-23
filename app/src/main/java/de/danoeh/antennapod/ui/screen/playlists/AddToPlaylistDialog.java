@@ -39,25 +39,20 @@ public final class AddToPlaylistDialog {
     public static void show(Context context, List<FeedItem> items) {
         List<Long> itemIds = new ArrayList<>();
         for (FeedItem item : items) {
-            if (!item.isPlayed()) {
-                itemIds.add(item.getId());
-            }
+            itemIds.add(item.getId());
         }
         if (itemIds.isEmpty()) {
-            EventBus.getDefault().post(new MessageEvent(
-                    context.getString(R.string.playlist_played_episodes_skipped)));
             return;
         }
-        boolean skippedPlayed = itemIds.size() < items.size();
         Observable.fromCallable(() -> new Pair<>(PlaylistDB.getPlaylists(), PlaylistDB.getMembershipCounts(itemIds)))
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(result -> showDialog(context, itemIds, result.first, result.second, skippedPlayed),
+                .subscribe(result -> showDialog(context, itemIds, result.first, result.second),
                         error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
     private static void showDialog(Context context, List<Long> itemIds, List<Playlist> playlists,
-                                   Map<Long, Integer> counts, boolean skippedPlayed) {
+                                   Map<Long, Integer> counts) {
         float density = context.getResources().getDisplayMetrics().density;
         int padding = (int) (24 * density);
         LinearLayout list = new LinearLayout(context);
@@ -116,10 +111,7 @@ public final class AddToPlaylistDialog {
                             changed = true;
                         }
                     }
-                    if (skippedPlayed) {
-                        EventBus.getDefault().post(new MessageEvent(
-                                context.getString(R.string.playlist_played_episodes_skipped)));
-                    } else if (changed) {
+                    if (changed) {
                         EventBus.getDefault().post(new MessageEvent(
                                 context.getString(R.string.playlists_updated_message)));
                     }

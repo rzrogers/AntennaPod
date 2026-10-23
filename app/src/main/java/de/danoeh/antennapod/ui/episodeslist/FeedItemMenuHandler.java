@@ -109,7 +109,6 @@ public class FeedItemMenuHandler {
         setItemVisibility(menu, R.id.skip_episode_item, canSkip);
         setItemVisibility(menu, R.id.remove_from_queue_item, canRemoveFromQueue);
         setItemVisibility(menu, R.id.add_to_queue_item, canAddToQueue);
-        setItemVisibility(menu, R.id.add_to_playlist_item, canMarkPlayed);
         setItemVisibility(menu, R.id.visit_website_item, canVisitWebsite);
         setItemVisibility(menu, R.id.share_item, canShare);
         setItemVisibility(menu, R.id.remove_inbox_item, canRemoveFromInbox);

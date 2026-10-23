@@ -33,7 +33,6 @@ import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PL
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_ITEMS;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEEDITEM;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_ID;
-import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_READ;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_TITLE;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_ITEMS;
 
@@ -57,10 +56,7 @@ public final class PlaylistDB {
     }
 
     private static void prune(SQLiteDatabase db) {
-        db.execSQL("DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS + " WHERE " + KEY_FEEDITEM
-                + " IN (SELECT " + KEY_ID + " FROM " + TABLE_NAME_FEED_ITEMS
-                + " WHERE " + KEY_READ + " = " + FeedItem.PLAYED + ")"
-                + " OR " + KEY_FEEDITEM + " NOT IN (SELECT " + KEY_ID + " FROM " + TABLE_NAME_FEED_ITEMS + ")");
+        db.execSQL("DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS + " WHERE " + KEY_FEEDITEM + " NOT IN (SELECT " + KEY_ID + " FROM " + TABLE_NAME_FEED_ITEMS + ")");
     }
 
     @NonNull

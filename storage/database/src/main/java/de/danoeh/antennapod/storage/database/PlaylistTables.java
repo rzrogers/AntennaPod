@@ -49,9 +49,11 @@ public final class PlaylistTables {
                 + " ON " + TABLE_NAME_PLAYLIST_ITEMS + " (" + KEY_FEEDITEM + ")");
         db.execSQL("CREATE INDEX IF NOT EXISTS " + TABLE_NAME_PLAYLIST_FEEDS + "_" + KEY_FEED
                 + " ON " + TABLE_NAME_PLAYLIST_FEEDS + " (" + KEY_FEED + ")");
-        db.execSQL("CREATE TRIGGER IF NOT EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + "_played"
+        db.execSQL("DROP TRIGGER IF EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + "_played");
+        db.execSQL("CREATE TRIGGER IF NOT EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + "_finished"
                 + " AFTER UPDATE OF " + KEY_READ + " ON " + TABLE_NAME_FEED_ITEMS
                 + " WHEN NEW." + KEY_READ + " = " + FeedItem.PLAYED
+                + " AND OLD." + KEY_READ + " != " + FeedItem.PLAYED
                 + " BEGIN DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS
                 + " WHERE " + KEY_FEEDITEM + " = NEW." + KEY_ID + "; END");
     }
