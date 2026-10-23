@@ -440,6 +440,9 @@ public class PodDBAdapter {
             for (String tableName : ALL_TABLES) {
                 adapter.db.delete(tableName, "1", null);
             }
+            for (String tableName : PlaylistTables.TABLES) {
+                adapter.db.delete(tableName, "1", null);
+            }
             return true;
         } finally {
             adapter.close();
@@ -939,6 +942,7 @@ public class PodDBAdapter {
             db.delete(TABLE_NAME_FEED_MEDIA, KEY_ID + " IN (" + mediaIds + ")", null);
             db.delete(TABLE_NAME_FEED_ITEMS, KEY_ID + " IN (" + itemIds + ")", null);
             db.delete(TABLE_NAME_FAVORITES, KEY_FEEDITEM + " IN (" + itemIds + ")", null);
+            PlaylistTables.removeItems(db, itemIds.toString());
             db.setTransactionSuccessful();
         } catch (SQLException e) {
             Log.e(TAG, Log.getStackTraceString(e));
@@ -962,6 +966,7 @@ public class PodDBAdapter {
 
             db.delete(TABLE_NAME_FEEDS, KEY_ID + "=?",
                     new String[]{String.valueOf(feed.getId())});
+            PlaylistTables.removeFeed(db, feed.getId());
             db.setTransactionSuccessful();
         } catch (SQLException e) {
             Log.e(TAG, Log.getStackTraceString(e));
@@ -1612,6 +1617,13 @@ public class PodDBAdapter {
         public void onUpgrade(final SQLiteDatabase db, final int oldVersion, final int newVersion) {
             Log.w("DBAdapter", "Upgrading from version " + oldVersion + " to " + newVersion + ".");
             DBUpgrader.upgrade(db, oldVersion, newVersion);
+        }
+
+        @Override
+        public void onOpen(final SQLiteDatabase db) {
+            if (!db.isReadOnly()) {
+                PlaylistTables.createIfMissing(db);
+            }
         }
     }
 }
