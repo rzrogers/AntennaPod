@@ -54,10 +54,10 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
             copyrightNotice.setIcon(R.drawable.ic_info_white);
             copyrightNotice.getIcon().mutate()
                     .setColorFilter(new PorterDuffColorFilter(0xffcc0000, PorterDuff.Mode.MULTIPLY));
-            copyrightNotice.setSummary("This application is based on AntennaPod."
+            copyrightNotice.setSummary("AntennaPod+ is an unofficial personal modification of AntennaPod"
+                    + " by rzrogers, licensed under the GNU General Public License (GPL) version 3."
                     + " The AntennaPod team does NOT provide support for this unofficial version."
-                    + " If you can read this message, the developers of this modification"
-                    + " violate the GNU General Public License (GPL).");
+                    + " Source code: github.com/rzrogers/AntennaPod");
             findPreference(PREF_CATEGORY_PROJECT).getParent().addPreference(copyrightNotice);
         } else if (packageHash == -1190467065) {
             Preference debugNotice = new Preference(getContext());
