@@ -44,7 +44,8 @@ jobs:
             -PreleaseStoreFile="$RUNNER_TEMP/antennapod-plus.jks" \
             -PreleaseStorePassword="$KEYSTORE_PASSWORD" \
             -PreleaseKeyAlias=antennapodplus \
-            -PreleaseKeyPassword="$KEYSTORE_PASSWORD"
+            -PreleaseKeyPassword="$KEYSTORE_PASSWORD" \
+            -PplusBuildNumber=${{ github.run_number }}
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

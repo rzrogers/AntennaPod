@@ -34,6 +34,7 @@ android {
         }
         release {
             applicationIdSuffix ".plus"
+            versionNameSuffix "-plus" + (project.findProperty("plusBuildNumber") ?: "")
             resValue "string", "provider_authority", "de.danoeh.antennapod.plus.provider"
             minifyEnabled true
             shrinkResources true
