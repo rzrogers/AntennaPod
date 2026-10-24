@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -174,6 +175,7 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
         public void onBindViewHolder(@NonNull PlaylistViewHolder holder, int position) {
             Playlist playlist = playlists.get(position);
             holder.title.setText(playlist.getTitle());
+            holder.autoDownloadIcon.setVisibility(playlist.getAutoDownload() != 0 ? View.VISIBLE : View.GONE);
             holder.count.setText(getResources().getQuantityString(R.plurals.num_episodes,
                     playlist.getEpisodeCount(), playlist.getEpisodeCount()));
             holder.itemView.setOnClickListener(v -> ((MainActivity) requireActivity())
@@ -193,11 +195,13 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
     private static class PlaylistViewHolder extends RecyclerView.ViewHolder {
         final TextView title;
         final TextView count;
+        final ImageView autoDownloadIcon;
 
         PlaylistViewHolder(View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.title);
             count = itemView.findViewById(R.id.count);
+            autoDownloadIcon = itemView.findViewById(R.id.auto_download_icon);
         }
     }
 }

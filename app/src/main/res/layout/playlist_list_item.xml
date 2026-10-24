@@ -41,4 +41,13 @@
 
     </LinearLayout>
 
+    <ImageView
+        android:id="@+id/auto_download_icon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginStart="12dp"
+        android:contentDescription="@string/playlist_auto_download_label"
+        android:src="@drawable/ic_download"
+        android:visibility="gone" />
+
 </LinearLayout>

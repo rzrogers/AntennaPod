@@ -15,6 +15,7 @@ import de.danoeh.antennapod.model.feed.FeedItemFilter;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.net.common.NetworkUtils;
 
@@ -64,6 +65,8 @@ public class AutomaticDownloadAlgorithm {
                         candidates.add(newItem);
                     }
                 }
+
+                PlaylistDB.prependAutoDownloadCandidates(candidates);
 
                 // filter items that are not auto downloadable
                 Iterator<FeedItem> it = candidates.iterator();

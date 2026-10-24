@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.storage.database;
 
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import de.danoeh.antennapod.model.feed.FeedItem;
@@ -19,6 +20,7 @@ public final class PlaylistTables {
     public static final String KEY_PLAYLIST = "playlist";
     public static final String KEY_LOADED = "loaded";
     public static final String KEY_PLAYLIST_POSITION = "playlist_position";
+    public static final String KEY_PLAYLIST_AUTO_DOWNLOAD = "auto_download";
 
     static final String[] TABLES = {
             TABLE_NAME_PLAYLISTS,
@@ -33,7 +35,19 @@ public final class PlaylistTables {
         db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_PLAYLISTS + " ("
                 + KEY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                 + KEY_TITLE + " TEXT,"
-                + KEY_LOADED + " INTEGER DEFAULT 0)");
+                + KEY_LOADED + " INTEGER DEFAULT 0,"
+                + KEY_PLAYLIST_AUTO_DOWNLOAD + " INTEGER DEFAULT 0)");
+        boolean hasAutoDownload = false;
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + TABLE_NAME_PLAYLISTS + ")", null)) {
+            int nameIndex = cursor.getColumnIndex("name");
+            while (cursor.moveToNext()) {
+                hasAutoDownload |= KEY_PLAYLIST_AUTO_DOWNLOAD.equals(cursor.getString(nameIndex));
+            }
+        }
+        if (!hasAutoDownload) {
+            db.execSQL("ALTER TABLE " + TABLE_NAME_PLAYLISTS + " ADD COLUMN "
+                    + KEY_PLAYLIST_AUTO_DOWNLOAD + " INTEGER DEFAULT 0");
+        }
         db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + " ("
                 + KEY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                 + KEY_PLAYLIST + " INTEGER,"

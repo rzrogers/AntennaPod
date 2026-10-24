@@ -72,6 +72,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
 
     private long playlistId;
     private String playlistTitle;
+    private int autoDownload;
     private MaterialToolbar toolbar;
     private TextView infoBar;
     private EpisodeItemListRecyclerView recyclerView;
@@ -167,7 +168,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
 
     @Override
     public boolean onMenuItemClick(MenuItem item) {
-        Playlist playlist = new Playlist(playlistId, playlistTitle, false, 0);
+        Playlist playlist = new Playlist(playlistId, playlistTitle, false, 0, 0);
         if (item.getItemId() == R.id.playlist_sort_item) {
             PlaylistSortDialog.newInstance(playlistId).show(getChildFragmentManager(), "SortDialog");
             return true;
@@ -176,6 +177,9 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
             return true;
         } else if (item.getItemId() == R.id.delete_playlist_item) {
             PlaylistDialogs.showDelete(requireContext(), playlist, null);
+            return true;
+        } else if (item.getItemId() == R.id.playlist_auto_download_item) {
+            PlaylistDialogs.showAutoDownload(requireContext(), playlistId, autoDownload);
             return true;
         }
         return false;
@@ -242,13 +246,13 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
             disposable.dispose();
         }
         disposable = Observable.fromCallable(() -> {
-            String title = null;
+            Playlist current = null;
             for (Playlist playlist : PlaylistDB.getPlaylists()) {
                 if (playlist.getId() == playlistId) {
-                    title = playlist.getTitle();
+                    current = playlist;
                 }
             }
-            return new PlaylistContent(title, PlaylistDB.getItems(playlistId));
+            return new PlaylistContent(current, PlaylistDB.getItems(playlistId));
         })
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -256,11 +260,12 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
                     if (adapter == null || !isAdded()) {
                         return;
                     }
-                    if (content.title == null) {
+                    if (content.playlist == null) {
                         getParentFragmentManager().popBackStack();
                         return;
                     }
-                    playlistTitle = content.title;
+                    playlistTitle = content.playlist.getTitle();
+                    autoDownload = content.playlist.getAutoDownload();
                     toolbar.setTitle(playlistTitle);
                     progressBar.setVisibility(View.GONE);
                     items = content.items;
@@ -295,11 +300,11 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
     }
 
     private static class PlaylistContent {
-        final String title;
+        final Playlist playlist;
         final List<FeedItem> items;
 
-        PlaylistContent(String title, List<FeedItem> items) {
-            this.title = title;
+        PlaylistContent(Playlist playlist, List<FeedItem> items) {
+            this.playlist = playlist;
             this.items = items;
         }
     }

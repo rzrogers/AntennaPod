@@ -31,6 +31,7 @@ import de.danoeh.antennapod.storage.database.mapper.FeedItemCursor;
 
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_LOADED;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST;
+import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_AUTO_DOWNLOAD;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_POSITION;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLISTS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_FEEDS;
@@ -71,13 +72,14 @@ public final class PlaylistDB {
         prune(db);
         List<Playlist> result = new ArrayList<>();
         String query = "SELECT p." + KEY_ID + ", p." + KEY_TITLE + ", p." + KEY_LOADED
+                + ", p." + KEY_PLAYLIST_AUTO_DOWNLOAD
                 + ", (SELECT COUNT(*) FROM " + TABLE_NAME_PLAYLIST_ITEMS + " i WHERE i." + KEY_PLAYLIST
                 + " = p." + KEY_ID + ")"
                 + " FROM " + TABLE_NAME_PLAYLISTS + " p ORDER BY p." + KEY_TITLE + " COLLATE NOCASE, p." + KEY_ID;
         try (Cursor cursor = db.rawQuery(query, null)) {
             while (cursor.moveToNext()) {
                 result.add(new Playlist(cursor.getLong(0), cursor.getString(1),
-                        cursor.getInt(2) == 1, cursor.getInt(3)));
+                        cursor.getInt(2) == 1, cursor.getInt(4), cursor.getInt(3)));
             }
         }
         return result;
@@ -231,6 +233,69 @@ public final class PlaylistDB {
         } finally {
             db.endTransaction();
         }
+    }
+
+    @NonNull
+    public static synchronized Set<Long> getAllItemIds() {
+        Set<Long> ids = new HashSet<>();
+        try (Cursor cursor = db().rawQuery("SELECT DISTINCT " + KEY_FEEDITEM + " FROM "
+                + TABLE_NAME_PLAYLIST_ITEMS, null)) {
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getLong(0));
+            }
+        }
+        return ids;
+    }
+
+    public static synchronized boolean hasAutoDownloadPlaylists() {
+        try (Cursor cursor = db().rawQuery("SELECT 1 FROM " + TABLE_NAME_PLAYLISTS + " WHERE "
+                + KEY_PLAYLIST_AUTO_DOWNLOAD + " != 0 LIMIT 1", null)) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    @NonNull
+    public static synchronized List<FeedItem> getAutoDownloadCandidates() {
+        List<FeedItem> candidates = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (Playlist playlist : getPlaylists()) {
+            int limit = playlist.getAutoDownload();
+            if (limit == 0) {
+                continue;
+            }
+            List<FeedItem> items = getItems(playlist.getId());
+            if (limit > 0 && items.size() > limit) {
+                items = items.subList(0, limit);
+            }
+            for (FeedItem item : items) {
+                if (seen.add(item.getId())) {
+                    candidates.add(item);
+                }
+            }
+        }
+        return candidates;
+    }
+
+    public static void prependAutoDownloadCandidates(List<FeedItem> candidates) {
+        List<FeedItem> playlistCandidates = getAutoDownloadCandidates();
+        if (playlistCandidates.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = new HashSet<>();
+        for (FeedItem item : playlistCandidates) {
+            ids.add(item.getId());
+        }
+        candidates.removeIf(item -> ids.contains(item.getId()));
+        candidates.addAll(0, playlistCandidates);
+    }
+
+    public static Future<?> setAutoDownload(long playlistId, int autoDownload) {
+        return runOnDbThread(() -> {
+            ContentValues values = new ContentValues();
+            values.put(KEY_PLAYLIST_AUTO_DOWNLOAD, autoDownload);
+            db().update(TABLE_NAME_PLAYLISTS, values, KEY_ID + "=?", new String[]{String.valueOf(playlistId)});
+            EventBus.getDefault().post(new PlaylistEvent(playlistId));
+        });
     }
 
     public static synchronized long getFeedPlaylistId(long feedId) {

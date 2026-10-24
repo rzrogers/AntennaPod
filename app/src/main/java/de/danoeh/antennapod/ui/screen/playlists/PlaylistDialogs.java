@@ -52,6 +52,33 @@ public final class PlaylistDialogs {
                 .show();
     }
 
+    public static void showAutoDownload(Context context, long playlistId, int current) {
+        int[] values = {0, 1, 2, 3, 5, 10, -1};
+        String[] names = new String[values.length];
+        int checked = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == 0) {
+                names[i] = context.getString(R.string.playlist_auto_download_off);
+            } else if (values[i] < 0) {
+                names[i] = context.getString(R.string.playlist_auto_download_all);
+            } else {
+                names[i] = context.getResources().getQuantityString(
+                        R.plurals.playlist_auto_download_next, values[i], values[i]);
+            }
+            if (values[i] == current) {
+                checked = i;
+            }
+        }
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.playlist_auto_download_label)
+                .setSingleChoiceItems(names, checked, (dialog, which) -> {
+                    PlaylistDB.setAutoDownload(playlistId, values[which]);
+                    dialog.dismiss();
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
     public static void showDelete(Context context, Playlist playlist, Runnable onDeleted) {
         new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.delete_playlist_label)

@@ -8,6 +8,8 @@ import com.google.android.material.color.DynamicColors;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.EventBusException;
 
+import de.danoeh.antennapod.ui.screen.playlists.PlaylistAutoDownloadTrigger;
+
 /** Main application class. */
 public class PodcastApp extends Application {
     private static final String TAG = "PodcastApp";
@@ -30,6 +32,7 @@ public class PodcastApp extends Application {
 
         DynamicColors.applyToActivitiesIfAvailable(this);
         ClientConfigurator.initialize(this);
+        PlaylistAutoDownloadTrigger.register(this);
         PreferenceUpgrader.checkUpgrades(this);
     }
 }

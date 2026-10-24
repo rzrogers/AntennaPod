@@ -6,6 +6,10 @@
         android:title="@string/sort" />
 
     <item
+        android:id="@+id/playlist_auto_download_item"
+        android:title="@string/playlist_auto_download_label" />
+
+    <item
         android:id="@+id/rename_playlist_item"
         android:title="@string/rename_playlist_label" />
 

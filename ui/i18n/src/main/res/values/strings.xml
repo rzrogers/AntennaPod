@@ -41,6 +41,13 @@
     <string name="playlists_updated_message">Playlists updated</string>
     <string name="feed_add_to_playlist_title">Add new episodes to playlist</string>
     <string name="playlist_none_label">None</string>
+    <string name="playlist_auto_download_label">Automatic download</string>
+    <string name="playlist_auto_download_off">Off</string>
+    <string name="playlist_auto_download_all">All episodes</string>
+    <plurals name="playlist_auto_download_next">
+        <item quantity="one">Next %d episode</item>
+        <item quantity="other">Next %d episodes</item>
+    </plurals>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
     <string name="downloads_label_short">Downloads</string>
