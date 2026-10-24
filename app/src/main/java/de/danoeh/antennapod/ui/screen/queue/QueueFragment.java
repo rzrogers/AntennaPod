@@ -29,9 +29,11 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.event.playback.SpeedChangedEvent;
 import de.danoeh.antennapod.ui.screen.InboxFragment;
 import de.danoeh.antennapod.ui.screen.SearchFragment;
+import de.danoeh.antennapod.ui.screen.playlists.QueuePlaylistMenu;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
 import de.danoeh.antennapod.ui.view.FloatingSelectMenu;
@@ -97,6 +99,7 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
     private static final String PREF_SHOW_LOCK_WARNING = "show_lock_warning";
 
     private Disposable disposable;
+    private Disposable playlistDisposable;
     private SwipeActions swipeActions;
     private SharedPreferences prefs;
 
@@ -113,6 +116,7 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
     public void onStart() {
         super.onStart();
         loadItems();
+        playlistDisposable = QueuePlaylistMenu.refresh(toolbar);
         EventBus.getDefault().register(this);
     }
 
@@ -131,6 +135,21 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
         if (disposable != null) {
             disposable.dispose();
         }
+        if (playlistDisposable != null) {
+            playlistDisposable.dispose();
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onPlaylistEvent(PlaylistEvent event) {
+        if (playlistDisposable != null) {
+            playlistDisposable.dispose();
+        }
+        playlistDisposable = QueuePlaylistMenu.refresh(toolbar);
+        if (recyclerAdapter != null) {
+            recyclerAdapter.updateDragDropEnabled();
+        }
+        refreshToolbarState();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -321,7 +340,7 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
                             FeedItemFilter.INCLUDE_ALL_FEED_STATES)));
             return true;
         }
-        return false;
+        return QueuePlaylistMenu.onMenuItemClick(requireContext(), itemId);
     }
 
     private void toggleQueueLock() {
@@ -590,7 +609,8 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
                 sortOrder = UserPreferences.getQueueKeepSortedOrder();
             }
             final View view = super.onCreateView(inflater, container, savedInstanceState);
-            viewBinding.keepSortedCheckbox.setVisibility(View.VISIBLE);
+            viewBinding.keepSortedCheckbox.setVisibility(
+                    UserPreferences.isPlusPlaylistLoaded() ? View.GONE : View.VISIBLE);
             viewBinding.keepSortedCheckbox.setChecked(UserPreferences.isQueueKeepSorted());
             // Disable until something gets selected
             viewBinding.keepSortedCheckbox.setEnabled(UserPreferences.isQueueKeepSorted());
@@ -622,8 +642,10 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
                 }
                 viewBinding.keepSortedCheckbox.setEnabled(true);
             }
-            UserPreferences.setQueueKeepSorted(viewBinding.keepSortedCheckbox.isChecked());
-            UserPreferences.setQueueKeepSortedOrder(sortOrder);
+            if (!UserPreferences.isPlusPlaylistLoaded()) {
+                UserPreferences.setQueueKeepSorted(viewBinding.keepSortedCheckbox.isChecked());
+                UserPreferences.setQueueKeepSortedOrder(sortOrder);
+            }
             DBWriter.reorderQueue(sortOrder, true);
         }
     }

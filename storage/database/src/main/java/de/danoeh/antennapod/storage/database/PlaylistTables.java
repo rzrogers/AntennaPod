@@ -1,9 +1,16 @@
 package de.danoeh.antennapod.storage.database;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import org.greenrobot.eventbus.EventBus;
+
+import java.util.List;
+
+import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
 
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_READ;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_ITEMS;
@@ -16,16 +23,20 @@ public final class PlaylistTables {
     public static final String TABLE_NAME_PLAYLISTS = "Playlists";
     public static final String TABLE_NAME_PLAYLIST_ITEMS = "PlaylistItems";
     public static final String TABLE_NAME_PLAYLIST_FEEDS = "PlaylistFeeds";
+    public static final String TABLE_NAME_DELAYED_DELETIONS = "DelayedDeletions";
 
     public static final String KEY_PLAYLIST = "playlist";
     public static final String KEY_LOADED = "loaded";
     public static final String KEY_PLAYLIST_POSITION = "playlist_position";
     public static final String KEY_PLAYLIST_AUTO_DOWNLOAD = "auto_download";
+    public static final String KEY_DELAYED_MEDIA = "media";
+    public static final String KEY_DELAYED_DUE = "due";
 
     static final String[] TABLES = {
             TABLE_NAME_PLAYLISTS,
             TABLE_NAME_PLAYLIST_ITEMS,
-            TABLE_NAME_PLAYLIST_FEEDS
+            TABLE_NAME_PLAYLIST_FEEDS,
+            TABLE_NAME_DELAYED_DELETIONS
     };
 
     private PlaylistTables() {
@@ -70,6 +81,48 @@ public final class PlaylistTables {
                 + " AND OLD." + KEY_READ + " != " + FeedItem.PLAYED
                 + " BEGIN DELETE FROM " + TABLE_NAME_PLAYLIST_ITEMS
                 + " WHERE " + KEY_FEEDITEM + " = NEW." + KEY_ID + "; END");
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_DELAYED_DELETIONS + " ("
+                + KEY_DELAYED_MEDIA + " INTEGER PRIMARY KEY NOT NULL,"
+                + KEY_DELAYED_DUE + " INTEGER)");
+        UserPreferences.setPlusPlaylistLoaded(getLoadedPlaylistId(db) != 0);
+    }
+
+    static long getLoadedPlaylistId(SQLiteDatabase db) {
+        try (Cursor cursor = db.rawQuery("SELECT " + KEY_ID + " FROM " + TABLE_NAME_PLAYLISTS
+                + " WHERE " + KEY_LOADED + " = 1 LIMIT 1", null)) {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        }
+    }
+
+    static long setLoaded(SQLiteDatabase db, long playlistId) {
+        long previous = getLoadedPlaylistId(db);
+        db.execSQL("UPDATE " + TABLE_NAME_PLAYLISTS + " SET " + KEY_LOADED + " = CASE WHEN "
+                + KEY_ID + " = ? THEN 1 ELSE 0 END", new Object[]{playlistId});
+        UserPreferences.setPlusPlaylistLoaded(getLoadedPlaylistId(db) != 0);
+        return previous;
+    }
+
+    static long mirrorQueue(SQLiteDatabase db, List<FeedItem> queue) {
+        long playlistId = getLoadedPlaylistId(db);
+        if (playlistId == 0) {
+            return 0;
+        }
+        db.delete(TABLE_NAME_PLAYLIST_ITEMS, KEY_PLAYLIST + "=?", new String[]{String.valueOf(playlistId)});
+        ContentValues values = new ContentValues();
+        for (int i = 0; i < queue.size(); i++) {
+            values.clear();
+            values.put(KEY_PLAYLIST, playlistId);
+            values.put(KEY_FEEDITEM, queue.get(i).getId());
+            values.put(KEY_PLAYLIST_POSITION, i);
+            db.insert(TABLE_NAME_PLAYLIST_ITEMS, null, values);
+        }
+        return playlistId;
+    }
+
+    static void postChanged(long playlistId) {
+        if (playlistId != 0) {
+            EventBus.getDefault().post(new PlaylistEvent(playlistId));
+        }
     }
 
     static void removeItems(SQLiteDatabase db, String itemIds) {

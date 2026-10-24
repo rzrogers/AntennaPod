@@ -988,6 +988,10 @@ public class DBWriter {
         }
     }
 
+    public static Future<?> runOnQueueThread(Runnable runnable) {
+        return runOnDbThread(runnable);
+    }
+
     /**
      * Submit to the DB thread only if caller is not already on the DB thread. Otherwise,
      * just execute synchronously

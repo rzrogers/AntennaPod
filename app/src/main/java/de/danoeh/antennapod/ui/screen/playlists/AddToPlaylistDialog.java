@@ -39,7 +39,9 @@ public final class AddToPlaylistDialog {
     public static void show(Context context, List<FeedItem> items) {
         List<Long> itemIds = new ArrayList<>();
         for (FeedItem item : items) {
-            itemIds.add(item.getId());
+            if (item.hasMedia()) {
+                itemIds.add(item.getId());
+            }
         }
         if (itemIds.isEmpty()) {
             return;

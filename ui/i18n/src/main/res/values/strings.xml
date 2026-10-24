@@ -48,6 +48,16 @@
         <item quantity="one">Next %d episode</item>
         <item quantity="other">Next %d episodes</item>
     </plurals>
+    <string name="play_playlist_label">Play</string>
+    <string name="playlist_loaded_info">Playing in queue · %1$s</string>
+    <string name="unload_playlist_label">Unload playlist</string>
+    <string name="save_queue_as_playlist_label">Save as playlist…</string>
+    <string name="playlist_no_playable_episodes">This playlist has no episodes to play</string>
+    <string name="pref_auto_delete_delay_title">Delete after</string>
+    <string name="auto_delete_delay_immediately">Immediately</string>
+    <string name="auto_delete_delay_15_minutes">15 minutes</string>
+    <string name="auto_delete_delay_1_hour">1 hour</string>
+    <string name="auto_delete_delay_1_day">1 day</string>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
     <string name="downloads_label_short">Downloads</string>

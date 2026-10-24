@@ -34,6 +34,24 @@ public final class PlaylistDialogs {
         binding.textInput.requestFocus();
     }
 
+    public static void showSaveQueue(Context context) {
+        EditTextDialogBinding binding = EditTextDialogBinding.inflate(LayoutInflater.from(context));
+        binding.textInputLayout.setHint(R.string.playlist_name_hint);
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.new_playlist_title)
+                .setView(binding.getRoot())
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String title = binding.textInput.getText() == null
+                            ? "" : binding.textInput.getText().toString().trim();
+                    if (!title.isEmpty()) {
+                        PlaylistDB.saveQueueAsPlaylist(title);
+                    }
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+        binding.textInput.requestFocus();
+    }
+
     public static void showRename(Context context, Playlist playlist) {
         EditTextDialogBinding binding = EditTextDialogBinding.inflate(LayoutInflater.from(context));
         binding.textInputLayout.setHint(R.string.playlist_name_hint);

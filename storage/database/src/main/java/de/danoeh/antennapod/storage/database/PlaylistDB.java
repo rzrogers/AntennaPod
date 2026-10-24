@@ -17,14 +17,15 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlaylistEvent;
+import de.danoeh.antennapod.event.QueueEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.Playlist;
 import de.danoeh.antennapod.storage.database.mapper.FeedItemCursor;
@@ -41,16 +42,11 @@ import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEEDITEM;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_ID;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_TITLE;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_ITEMS;
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_MEDIA;
 
 public final class PlaylistDB {
     private static final String TAG = "PlaylistDB";
     private static final int CHUNK_SIZE = 500;
-    private static final ExecutorService dbExec = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r);
-        t.setName("PlaylistDatabaseExecutor");
-        t.setPriority(Thread.MIN_PRIORITY);
-        return t;
-    });
 
     private PlaylistDB() {
     }
@@ -149,7 +145,7 @@ public final class PlaylistDB {
     }
 
     private static Future<?> runOnDbThread(Runnable runnable) {
-        return dbExec.submit(() -> {
+        return DBWriter.runOnQueueThread(() -> {
             try {
                 synchronized (PlaylistDB.class) {
                     runnable.run();
@@ -186,6 +182,9 @@ public final class PlaylistDB {
         return runOnDbThread(() -> {
             SQLiteDatabase db = db();
             String[] args = new String[]{String.valueOf(playlistId)};
+            if (PlaylistTables.getLoadedPlaylistId(db) == playlistId) {
+                PlaylistTables.setLoaded(db, 0);
+            }
             db.beginTransactionNonExclusive();
             try {
                 db.delete(TABLE_NAME_PLAYLIST_ITEMS, KEY_PLAYLIST + "=?", args);
@@ -201,12 +200,32 @@ public final class PlaylistDB {
 
     public static Future<?> addItems(long playlistId, List<Long> itemIds) {
         return runOnDbThread(() -> {
+            if (isLoaded(playlistId)) {
+                appendToQueue(itemIds);
+                return;
+            }
             insertItems(db(), playlistId, itemIds);
             EventBus.getDefault().post(new PlaylistEvent(playlistId));
         });
     }
 
+    private static Set<Long> getIdsWithMedia(SQLiteDatabase db, List<Long> itemIds) {
+        Set<Long> ids = new HashSet<>();
+        for (int start = 0; start < itemIds.size(); start += CHUNK_SIZE) {
+            List<Long> chunk = itemIds.subList(start, Math.min(itemIds.size(), start + CHUNK_SIZE));
+            try (Cursor cursor = db.rawQuery("SELECT " + KEY_FEEDITEM + " FROM "
+                    + TABLE_NAME_FEED_MEDIA + " WHERE " + KEY_FEEDITEM + " IN ("
+                    + TextUtils.join(",", chunk) + ")", null)) {
+                while (cursor.moveToNext()) {
+                    ids.add(cursor.getLong(0));
+                }
+            }
+        }
+        return ids;
+    }
+
     private static void insertItems(SQLiteDatabase db, long playlistId, List<Long> itemIds) {
+        Set<Long> withMedia = getIdsWithMedia(db, itemIds);
         Set<Long> existing = new HashSet<>(getItemIds(db, playlistId));
         long position = 0;
         try (Cursor cursor = db.rawQuery("SELECT MAX(" + KEY_PLAYLIST_POSITION + ") FROM "
@@ -220,7 +239,7 @@ public final class PlaylistDB {
         try {
             ContentValues values = new ContentValues();
             for (long itemId : itemIds) {
-                if (!existing.add(itemId)) {
+                if (!withMedia.contains(itemId) || !existing.add(itemId)) {
                     continue;
                 }
                 values.clear();
@@ -338,7 +357,9 @@ public final class PlaylistDB {
         }
         return runOnDbThread(() -> {
             long playlistId = getFeedPlaylistId(feedId);
-            if (playlistId > 0) {
+            if (playlistId > 0 && isLoaded(playlistId)) {
+                appendToQueue(itemIds);
+            } else if (playlistId > 0) {
                 insertItems(db(), playlistId, itemIds);
                 EventBus.getDefault().post(new PlaylistEvent(playlistId));
             }
@@ -347,6 +368,10 @@ public final class PlaylistDB {
 
     public static Future<?> removeItems(long playlistId, List<Long> itemIds) {
         return runOnDbThread(() -> {
+            if (isLoaded(playlistId)) {
+                removeFromQueue(itemIds);
+                return;
+            }
             SQLiteDatabase db = db();
             db.beginTransactionNonExclusive();
             try {
@@ -364,6 +389,10 @@ public final class PlaylistDB {
 
     public static Future<?> setOrder(long playlistId, List<Long> itemIds) {
         return runOnDbThread(() -> {
+            if (isLoaded(playlistId)) {
+                reorderQueue(itemIds);
+                return;
+            }
             SQLiteDatabase db = db();
             db.beginTransactionNonExclusive();
             try {
@@ -380,5 +409,169 @@ public final class PlaylistDB {
             }
             EventBus.getDefault().post(new PlaylistEvent(playlistId));
         });
+    }
+
+    public static synchronized Playlist getLoadedPlaylist() {
+        long loadedId = PlaylistTables.getLoadedPlaylistId(db());
+        if (loadedId == 0) {
+            return null;
+        }
+        for (Playlist playlist : getPlaylists()) {
+            if (playlist.getId() == loadedId) {
+                return playlist;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isLoaded(long playlistId) {
+        return playlistId != 0 && PlaylistTables.getLoadedPlaylistId(db()) == playlistId;
+    }
+
+    public static Future<?> playPlaylist(long playlistId) {
+        return runOnDbThread(() -> {
+            List<FeedItem> items = new ArrayList<>();
+            for (FeedItem item : getItems(playlistId)) {
+                if (item.hasMedia()) {
+                    items.add(item);
+                }
+            }
+            if (items.isEmpty()) {
+                return;
+            }
+            SQLiteDatabase db = db();
+            List<FeedItem> oldQueue = DBReader.getQueue();
+            long previous = PlaylistTables.setLoaded(db, playlistId);
+            replaceQueue(oldQueue, items);
+            if (previous != playlistId) {
+                PlaylistTables.postChanged(previous);
+            }
+        });
+    }
+
+    public static Future<?> saveQueueAsPlaylist(String title) {
+        return runOnDbThread(() -> {
+            SQLiteDatabase db = db();
+            List<FeedItem> queue = DBReader.getQueue();
+            ContentValues values = new ContentValues();
+            values.put(KEY_TITLE, title);
+            values.put(KEY_LOADED, 0);
+            long playlistId = db.insert(TABLE_NAME_PLAYLISTS, null, values);
+            PlaylistTables.setLoaded(db, playlistId);
+            PodDBAdapter.getInstance().setQueue(queue);
+        });
+    }
+
+    private static void replaceQueue(List<FeedItem> oldQueue, List<FeedItem> newQueue) {
+        Set<Long> newIds = new HashSet<>();
+        for (FeedItem item : newQueue) {
+            newIds.add(item.getId());
+        }
+        Set<Long> oldIds = new HashSet<>();
+        List<FeedItem> updatedItems = new ArrayList<>();
+        for (FeedItem item : oldQueue) {
+            oldIds.add(item.getId());
+            if (!newIds.contains(item.getId())) {
+                item.removeTag(FeedItem.TAG_QUEUE);
+                updatedItems.add(item);
+            }
+        }
+        List<FeedItem> markAsUnplayed = new ArrayList<>();
+        for (FeedItem item : newQueue) {
+            item.addTag(FeedItem.TAG_QUEUE);
+            if (!oldIds.contains(item.getId())) {
+                updatedItems.add(item);
+            }
+            if (item.isNew()) {
+                markAsUnplayed.add(item);
+            }
+        }
+        PodDBAdapter.getInstance().setQueue(newQueue);
+        EventBus.getDefault().post(QueueEvent.setQueue(newQueue));
+        if (!updatedItems.isEmpty()) {
+            EventBus.getDefault().post(new FeedItemEvent(updatedItems, false));
+        }
+        if (!markAsUnplayed.isEmpty()) {
+            DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, markAsUnplayed);
+        }
+    }
+
+    private static void appendToQueue(List<Long> itemIds) {
+        List<FeedItem> queue = DBReader.getQueue();
+        Set<Long> inQueue = new HashSet<>();
+        for (FeedItem item : queue) {
+            inQueue.add(item.getId());
+        }
+        List<FeedItem> added = new ArrayList<>();
+        List<QueueEvent> events = new ArrayList<>();
+        List<FeedItem> markAsUnplayed = new ArrayList<>();
+        for (long itemId : itemIds) {
+            if (!inQueue.add(itemId)) {
+                continue;
+            }
+            FeedItem item = DBReader.getFeedItem(itemId);
+            if (item == null || !item.hasMedia()) {
+                continue;
+            }
+            queue.add(item);
+            item.addTag(FeedItem.TAG_QUEUE);
+            added.add(item);
+            events.add(QueueEvent.added(item, queue.size() - 1));
+            if (item.isNew()) {
+                markAsUnplayed.add(item);
+            }
+        }
+        if (added.isEmpty()) {
+            return;
+        }
+        PodDBAdapter.getInstance().setQueue(queue);
+        for (QueueEvent event : events) {
+            EventBus.getDefault().post(event);
+        }
+        EventBus.getDefault().post(new FeedItemEvent(added, false));
+        if (!markAsUnplayed.isEmpty()) {
+            DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, markAsUnplayed);
+        }
+    }
+
+    private static void removeFromQueue(List<Long> itemIds) {
+        Set<Long> toRemove = new HashSet<>(itemIds);
+        List<FeedItem> queue = DBReader.getQueue();
+        List<FeedItem> removed = new ArrayList<>();
+        List<FeedItem> remaining = new ArrayList<>();
+        for (FeedItem item : queue) {
+            if (toRemove.contains(item.getId())) {
+                item.removeTag(FeedItem.TAG_QUEUE);
+                removed.add(item);
+            } else {
+                remaining.add(item);
+            }
+        }
+        if (removed.isEmpty()) {
+            return;
+        }
+        PodDBAdapter.getInstance().setQueue(remaining);
+        for (FeedItem item : removed) {
+            EventBus.getDefault().post(QueueEvent.removed(item));
+        }
+        EventBus.getDefault().post(new FeedItemEvent(removed, false));
+    }
+
+    private static void reorderQueue(List<Long> itemIds) {
+        List<FeedItem> queue = DBReader.getQueue();
+        Map<Long, FeedItem> byId = new LinkedHashMap<>();
+        for (FeedItem item : queue) {
+            byId.put(item.getId(), item);
+        }
+        List<FeedItem> reordered = new ArrayList<>();
+        for (long itemId : itemIds) {
+            FeedItem item = byId.remove(itemId);
+            if (item != null) {
+                reordered.add(item);
+            }
+        }
+        reordered.addAll(byId.values());
+        PodDBAdapter.getInstance().setQueue(reordered);
+        EventBus.getDefault().post(QueueEvent.setQueue(reordered));
     }
 }

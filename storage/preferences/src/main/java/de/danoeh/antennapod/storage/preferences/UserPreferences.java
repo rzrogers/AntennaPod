@@ -88,6 +88,8 @@ public abstract class UserPreferences {
     public static final String PREF_FAVORITE_KEEPS_EPISODE = "prefFavoriteKeepsEpisode";
     public static final String PREF_AUTO_DELETE = "prefAutoDelete";
     private static final String PREF_AUTO_DELETE_LOCAL = "prefAutoDeleteLocal";
+    private static final String PREF_PLUS_AUTO_DELETE_DELAY = "prefPlusAutoDeleteDelay";
+    private static final String PREF_PLUS_PLAYLIST_LOADED = "prefPlusPlaylistLoaded";
     public static final String PREF_SMART_MARK_AS_PLAYED_SECS = "prefSmartMarkAsPlayedSecs";
     private static final String PREF_PLAYBACK_SPEED_ARRAY = "prefPlaybackSpeedArray";
     public static final String PREF_PAUSE_PLAYBACK_FOR_FOCUS_LOSS = "prefPauseForFocusLoss";
@@ -442,6 +444,24 @@ public abstract class UserPreferences {
 
     public static boolean isAutoDeleteLocal() {
         return prefs.getBoolean(PREF_AUTO_DELETE_LOCAL, false);
+    }
+
+    public static long getPlusAutoDeleteDelayMinutes() {
+        try {
+            return Long.parseLong(prefs.getString(PREF_PLUS_AUTO_DELETE_DELAY, "0"));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    public static boolean isPlusPlaylistLoaded() {
+        return prefs != null && prefs.getBoolean(PREF_PLUS_PLAYLIST_LOADED, false);
+    }
+
+    public static void setPlusPlaylistLoaded(boolean loaded) {
+        if (prefs != null) {
+            prefs.edit().putBoolean(PREF_PLUS_PLAYLIST_LOADED, loaded).apply();
+        }
     }
 
     public static int getSmartMarkAsPlayedSecs() {
@@ -806,7 +826,7 @@ public abstract class UserPreferences {
      * @see #getQueueKeepSortedOrder()
      */
     public static boolean isQueueKeepSorted() {
-        return prefs.getBoolean(PREF_QUEUE_KEEP_SORTED, false);
+        return prefs.getBoolean(PREF_QUEUE_KEEP_SORTED, false) && !isPlusPlaylistLoaded();
     }
 
     /**

@@ -176,8 +176,9 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
             Playlist playlist = playlists.get(position);
             holder.title.setText(playlist.getTitle());
             holder.autoDownloadIcon.setVisibility(playlist.getAutoDownload() != 0 ? View.VISIBLE : View.GONE);
-            holder.count.setText(getResources().getQuantityString(R.plurals.num_episodes,
-                    playlist.getEpisodeCount(), playlist.getEpisodeCount()));
+            String count = getResources().getQuantityString(R.plurals.num_episodes,
+                    playlist.getEpisodeCount(), playlist.getEpisodeCount());
+            holder.count.setText(playlist.isLoaded() ? getString(R.string.playlist_loaded_info, count) : count);
             holder.itemView.setOnClickListener(v -> ((MainActivity) requireActivity())
                     .loadChildFragment(PlaylistFragment.newInstance(playlist.getId(), playlist.getTitle())));
             holder.itemView.setOnLongClickListener(v -> {

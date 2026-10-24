@@ -9,6 +9,7 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.EventBusException;
 
 import de.danoeh.antennapod.ui.screen.playlists.PlaylistAutoDownloadTrigger;
+import de.danoeh.antennapod.ui.screen.playlists.PlaylistQueueSync;
 
 /** Main application class. */
 public class PodcastApp extends Application {
@@ -33,6 +34,7 @@ public class PodcastApp extends Application {
         DynamicColors.applyToActivitiesIfAvailable(this);
         ClientConfigurator.initialize(this);
         PlaylistAutoDownloadTrigger.register(this);
+        PlaylistQueueSync.register(this);
         PreferenceUpgrader.checkUpgrades(this);
     }
 }

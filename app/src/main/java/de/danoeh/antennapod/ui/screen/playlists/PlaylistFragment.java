@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.MaterialToolbar;
 
 import org.greenrobot.eventbus.EventBus;
@@ -34,6 +35,10 @@ import java.util.Collections;
 import java.util.List;
 
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.actionbutton.ItemActionButton;
+import de.danoeh.antennapod.actionbutton.PlayActionButton;
+import de.danoeh.antennapod.actionbutton.PlayLocalActionButton;
+import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
@@ -42,8 +47,11 @@ import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
+import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.Playlist;
 import de.danoeh.antennapod.model.feed.SortOrder;
+import de.danoeh.antennapod.playback.service.PlaybackStatus;
+import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.FeedItemPermutors;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -73,6 +81,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
     private long playlistId;
     private String playlistTitle;
     private int autoDownload;
+    private boolean loaded;
     private MaterialToolbar toolbar;
     private TextView infoBar;
     private EpisodeItemListRecyclerView recyclerView;
@@ -113,6 +122,10 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         infoBar = root.findViewById(R.id.info_bar);
         int paddingHorizontal = (int) (getResources().getDisplayMetrics().density * 60);
         infoBar.setPadding(paddingHorizontal, 0, paddingHorizontal, 0);
+        AppBarLayout appBar = root.findViewById(R.id.appbar);
+        View playButton = inflater.inflate(R.layout.playlist_play_button, appBar, false);
+        appBar.addView(playButton);
+        playButton.setOnClickListener(v -> playPlaylist());
 
         SwipeRefreshLayout swipeRefreshLayout = root.findViewById(R.id.swipeRefresh);
         swipeRefreshLayout.setEnabled(false);
@@ -166,9 +179,49 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         adapter = null;
     }
 
+    private void playPlaylist() {
+        Context context = requireActivity();
+        String noEpisodesMessage = getString(R.string.playlist_no_playable_episodes);
+        long id = playlistId;
+        Observable.fromCallable(() -> {
+            PlaylistDB.playPlaylist(id).get();
+            Playlist loadedPlaylist = PlaylistDB.getLoadedPlaylist();
+            List<FeedItem> queue = DBReader.getQueue();
+            if (loadedPlaylist == null || loadedPlaylist.getId() != id) {
+                return Collections.<FeedItem>emptyList();
+            }
+            return queue;
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(queue -> {
+                    if (queue.isEmpty()) {
+                        EventBus.getDefault().post(new MessageEvent(noEpisodesMessage));
+                        return;
+                    }
+                    startPlayback(context, queue.get(0));
+                }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private static void startPlayback(Context context, FeedItem item) {
+        FeedMedia media = item.getMedia();
+        if (media == null || PlaybackStatus.isCurrentlyPlaying(media)) {
+            return;
+        }
+        ItemActionButton button;
+        if (item.getFeed().isLocalFeed()) {
+            button = new PlayLocalActionButton(item);
+        } else if (media.isDownloaded()) {
+            button = new PlayActionButton(item);
+        } else {
+            button = new StreamActionButton(item);
+        }
+        button.onClick(context);
+    }
+
     @Override
     public boolean onMenuItemClick(MenuItem item) {
-        Playlist playlist = new Playlist(playlistId, playlistTitle, false, 0, 0);
+        Playlist playlist = new Playlist(playlistId, playlistTitle, loaded, 0, 0);
         if (item.getItemId() == R.id.playlist_sort_item) {
             PlaylistSortDialog.newInstance(playlistId).show(getChildFragmentManager(), "SortDialog");
             return true;
@@ -266,6 +319,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
                     }
                     playlistTitle = content.playlist.getTitle();
                     autoDownload = content.playlist.getAutoDownload();
+                    loaded = content.playlist.isLoaded();
                     toolbar.setTitle(playlistTitle);
                     progressBar.setVisibility(View.GONE);
                     items = content.items;
@@ -288,7 +342,8 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         }
         String episodes = getResources().getQuantityString(R.plurals.num_episodes, items.size(), items.size());
         String time = Converter.getDurationStringLocalized(getResources(), timeLeft, false);
-        infoBar.setText(getString(R.string.queue_time_left_label, episodes, time));
+        String info = getString(R.string.queue_time_left_label, episodes, time);
+        infoBar.setText(loaded ? getString(R.string.playlist_loaded_info, info) : info);
     }
 
     private static List<Long> idsOf(List<FeedItem> list) {

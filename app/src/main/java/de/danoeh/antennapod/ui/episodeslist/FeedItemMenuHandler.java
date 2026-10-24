@@ -24,6 +24,7 @@ import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterfa
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.database.DelayedDeletion;
 import de.danoeh.antennapod.ui.common.IntentUtils;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.ui.share.ShareUtils;
@@ -74,6 +75,7 @@ public class FeedItemMenuHandler {
         boolean canRemoveFavorite = false;
         boolean canShowTranscript = false;
         boolean canShowSocialInteract = false;
+        boolean canAddToPlaylist = false;
 
         for (FeedItem item : selectedItems) {
             final boolean hasMedia = item.getMedia() != null;
@@ -94,6 +96,7 @@ public class FeedItemMenuHandler {
             canRemoveFavorite |= item.isTagged(FeedItem.TAG_FAVORITE);
             canShowTranscript |= item.hasTranscript();
             canShowSocialInteract |= item.getSocialInteractUrl() != null;
+            canAddToPlaylist |= hasMedia;
         }
 
         if (selectedItems.size() > 1) {
@@ -109,6 +112,7 @@ public class FeedItemMenuHandler {
         setItemVisibility(menu, R.id.skip_episode_item, canSkip);
         setItemVisibility(menu, R.id.remove_from_queue_item, canRemoveFromQueue);
         setItemVisibility(menu, R.id.add_to_queue_item, canAddToQueue);
+        setItemVisibility(menu, R.id.add_to_playlist_item, canAddToPlaylist);
         setItemVisibility(menu, R.id.visit_website_item, canVisitWebsite);
         setItemVisibility(menu, R.id.share_item, canShare);
         setItemVisibility(menu, R.id.remove_inbox_item, canRemoveFromInbox);
@@ -271,7 +275,7 @@ public class FeedItemMenuHandler {
             boolean almostEnded = media.getDuration() > 0
                     && media.getPosition() >= media.getDuration() - smartMarkAsPlayedSecs * 1000;
             if (almostEnded && shouldAutoDelete) {
-                DBWriter.deleteFeedMediaOfItem(context, media);
+                DelayedDeletion.deleteOrSchedule(context, media);
             }
         };
 

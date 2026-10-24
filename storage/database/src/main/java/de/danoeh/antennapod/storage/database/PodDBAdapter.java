@@ -900,6 +900,7 @@ public class PodDBAdapter {
 
     public void setQueue(List<FeedItem> queue) {
         ContentValues values = new ContentValues();
+        long loadedPlaylistId = 0;
         try {
             db.beginTransactionNonExclusive();
             db.delete(TABLE_NAME_QUEUE, null, null);
@@ -910,16 +911,20 @@ public class PodDBAdapter {
                 values.put(KEY_FEED, item.getFeed().getId());
                 db.insertWithOnConflict(TABLE_NAME_QUEUE, null, values, SQLiteDatabase.CONFLICT_REPLACE);
             }
+            loadedPlaylistId = PlaylistTables.mirrorQueue(db, queue);
             db.setTransactionSuccessful();
         } catch (SQLException e) {
             Log.e(TAG, Log.getStackTraceString(e));
         } finally {
             db.endTransaction();
         }
+        PlaylistTables.postChanged(loadedPlaylistId);
     }
 
     public void clearQueue() {
+        long unloadedPlaylistId = PlaylistTables.setLoaded(db, 0);
         db.delete(TABLE_NAME_QUEUE, null, null);
+        PlaylistTables.postChanged(unloadedPlaylistId);
     }
 
     /**

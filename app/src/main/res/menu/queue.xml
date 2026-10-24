@@ -25,6 +25,15 @@
         android:title="@string/sort" />
 
     <item
+        android:id="@+id/unload_playlist_item"
+        android:title="@string/unload_playlist_label"
+        android:visible="false" />
+
+    <item
+        android:id="@+id/save_queue_as_playlist_item"
+        android:title="@string/save_queue_as_playlist_label" />
+
+    <item
         android:id="@+id/clear_queue"
         android:title="@string/clear_queue_label"
         custom:showAsAction="collapseActionView"
