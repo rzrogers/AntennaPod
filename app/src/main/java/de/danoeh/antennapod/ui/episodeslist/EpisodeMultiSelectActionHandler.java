@@ -20,6 +20,7 @@ import de.danoeh.antennapod.net.sync.serviceinterface.EpisodeAction;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SynchronizationSettings;
@@ -47,6 +48,12 @@ public class EpisodeMultiSelectActionHandler {
             removeFromQueueChecked(items);
         } else if (actionId == R.id.add_to_playlist_item) {
             AddToPlaylistDialog.show(activity, items);
+        } else if (actionId == R.id.play_next_item) {
+            List<Long> itemIds = new ArrayList<>();
+            for (FeedItem item : items) {
+                itemIds.add(item.getId());
+            }
+            PlaylistDB.playNext(itemIds);
         } else if (actionId == R.id.remove_inbox_item) {
             removeFromInboxChecked(items);
         } else if (actionId == R.id.mark_read_item) {

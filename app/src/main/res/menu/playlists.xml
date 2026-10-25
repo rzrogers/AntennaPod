@@ -7,4 +7,14 @@
         android:icon="@drawable/ic_add"
         android:title="@string/new_playlist_title"
         custom:showAsAction="always" />
+
+    <item
+        android:id="@+id/export_playlists_item"
+        android:title="@string/export_playlists_label"
+        custom:showAsAction="never" />
+
+    <item
+        android:id="@+id/import_playlists_item"
+        android:title="@string/import_playlists_label"
+        custom:showAsAction="never" />
 </menu>

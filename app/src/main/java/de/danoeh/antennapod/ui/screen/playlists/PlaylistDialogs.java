@@ -1,19 +1,111 @@
 package de.danoeh.antennapod.ui.screen.playlists;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
 
+import java.util.ArrayList;
+
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.Playlist;
+import de.danoeh.antennapod.model.feed.SortOrder;
+import de.danoeh.antennapod.storage.database.FeedItemPermutors;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.ui.common.databinding.EditTextDialogBinding;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public final class PlaylistDialogs {
+    private static final String TAG = "PlaylistDialogs";
+
     private PlaylistDialogs() {
+    }
+
+    public static boolean onMenuItemClick(Context context, Playlist playlist, int itemId, Runnable onDeleted) {
+        if (itemId == R.id.playlist_sort_item) {
+            showSort(context, playlist.getId());
+        } else if (itemId == R.id.playlist_add_location_item) {
+            showAddLocation(context, playlist.getId(), playlist.getAddLocation());
+        } else if (itemId == R.id.playlist_auto_download_item) {
+            showAutoDownload(context, playlist.getId(), playlist.getAutoDownload());
+        } else if (itemId == R.id.playlist_add_to_home_screen_item) {
+            PlaylistPlayer.requestShortcut(context, playlist);
+        } else if (itemId == R.id.rename_playlist_item) {
+            showRename(context, playlist);
+        } else if (itemId == R.id.delete_playlist_item) {
+            showDelete(context, playlist, onDeleted);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    public static void showAddLocation(Context context, long playlistId, int current) {
+        int[] values = {PlaylistDB.ADD_LOCATION_BACK, PlaylistDB.ADD_LOCATION_FRONT, PlaylistDB.ADD_LOCATION_RANDOM};
+        String[] names = {
+                context.getString(R.string.playlist_add_location_back),
+                context.getString(R.string.playlist_add_location_front),
+                context.getString(R.string.playlist_add_location_random)
+        };
+        int checked = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == current) {
+                checked = i;
+            }
+        }
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.playlist_add_location_label)
+                .setSingleChoiceItems(names, checked, (dialog, which) -> {
+                    PlaylistDB.setAddLocation(playlistId, values[which]);
+                    dialog.dismiss();
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
+    public static void showSort(Context context, long playlistId) {
+        SortOrder[] orders = {
+                SortOrder.DATE_NEW_OLD, SortOrder.DATE_OLD_NEW,
+                SortOrder.EPISODE_TITLE_A_Z, SortOrder.EPISODE_TITLE_Z_A,
+                SortOrder.FEED_TITLE_A_Z, SortOrder.FEED_TITLE_Z_A,
+                SortOrder.DURATION_SHORT_LONG, SortOrder.DURATION_LONG_SHORT,
+                SortOrder.RANDOM, SortOrder.SMART_SHUFFLE_OLD_NEW, SortOrder.SMART_SHUFFLE_NEW_OLD
+        };
+        int[] titles = {
+                R.string.playlist_sort_date_new_old, R.string.playlist_sort_date_old_new,
+                R.string.playlist_sort_title_a_z, R.string.playlist_sort_title_z_a,
+                R.string.playlist_sort_feed_a_z, R.string.playlist_sort_feed_z_a,
+                R.string.playlist_sort_duration_short_long, R.string.playlist_sort_duration_long_short,
+                R.string.random, R.string.playlist_sort_smart_shuffle_old_new,
+                R.string.playlist_sort_smart_shuffle_new_old
+        };
+        String[] names = new String[titles.length];
+        for (int i = 0; i < titles.length; i++) {
+            names[i] = context.getString(titles[i]);
+        }
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.sort)
+                .setSingleChoiceItems(names, -1, (dialog, which) -> {
+                    SortOrder order = orders[which];
+                    dialog.dismiss();
+                    Completable.fromAction(() -> {
+                        List<FeedItem> items = PlaylistDB.getItems(playlistId);
+                        FeedItemPermutors.getPermutor(order).reorder(items);
+                        List<Long> ids = new ArrayList<>();
+                        for (FeedItem item : items) {
+                            ids.add(item.getId());
+                        }
+                        PlaylistDB.setOrder(playlistId, ids);
+                    }).subscribeOn(Schedulers.io()).subscribe(() -> { },
+                            error -> Log.e(TAG, Log.getStackTraceString(error)));
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
     }
 
     public static void showCreate(Context context, List<Long> itemIds) {

@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.ui.screen.playlists;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.core.util.Pair;
@@ -8,7 +9,10 @@ import androidx.preference.Preference;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.Playlist;
@@ -28,52 +32,59 @@ public final class FeedPlaylistPreference {
             return;
         }
         preference.setOnPreferenceClickListener(p -> {
-            load(feedId, (playlists, currentId) -> showDialog(preference, feedId, playlists, currentId));
+            load(feedId, (playlists, currentIds) -> showDialog(preference, feedId, playlists, currentIds));
             return true;
         });
-        load(feedId, (playlists, currentId) -> updateSummary(preference, playlists, currentId));
+        load(feedId, (playlists, currentIds) -> updateSummary(preference, playlists, currentIds));
     }
 
     private interface Callback {
-        void onLoaded(List<Playlist> playlists, long currentId);
+        void onLoaded(List<Playlist> playlists, Set<Long> currentIds);
     }
 
     private static void load(long feedId, Callback callback) {
-        Observable.fromCallable(() -> new Pair<>(PlaylistDB.getPlaylists(), PlaylistDB.getFeedPlaylistId(feedId)))
+        Observable.fromCallable(() -> new Pair<>(PlaylistDB.getPlaylists(), PlaylistDB.getFeedPlaylistIds(feedId)))
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(result -> callback.onLoaded(result.first, result.second),
                         error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
-    private static void updateSummary(Preference preference, List<Playlist> playlists, long currentId) {
+    private static void updateSummary(Preference preference, List<Playlist> playlists, Set<Long> currentIds) {
+        List<String> names = new ArrayList<>();
         for (Playlist playlist : playlists) {
-            if (playlist.getId() == currentId) {
-                preference.setSummary(playlist.getTitle());
-                return;
+            if (currentIds.contains(playlist.getId())) {
+                names.add(playlist.getTitle());
             }
         }
-        preference.setSummary(R.string.playlist_none_label);
+        if (names.isEmpty()) {
+            preference.setSummary(R.string.playlist_none_label);
+        } else {
+            preference.setSummary(TextUtils.join(", ", names));
+        }
     }
 
-    private static void showDialog(Preference preference, long feedId, List<Playlist> playlists, long currentId) {
+    private static void showDialog(Preference preference, long feedId, List<Playlist> playlists,
+                                   Set<Long> currentIds) {
         Context context = preference.getContext();
-        String[] names = new String[playlists.size() + 1];
-        names[0] = context.getString(R.string.playlist_none_label);
-        int checked = 0;
+        String[] names = new String[playlists.size()];
+        boolean[] checked = new boolean[playlists.size()];
         for (int i = 0; i < playlists.size(); i++) {
-            names[i + 1] = playlists.get(i).getTitle();
-            if (playlists.get(i).getId() == currentId) {
-                checked = i + 1;
-            }
+            names[i] = playlists.get(i).getTitle();
+            checked[i] = currentIds.contains(playlists.get(i).getId());
         }
         new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.feed_add_to_playlist_title)
-                .setSingleChoiceItems(names, checked, (dialog, which) -> {
-                    long playlistId = which == 0 ? 0 : playlists.get(which - 1).getId();
-                    PlaylistDB.setFeedPlaylist(feedId, playlistId);
-                    updateSummary(preference, playlists, playlistId);
-                    dialog.dismiss();
+                .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    Set<Long> selected = new HashSet<>();
+                    for (int i = 0; i < playlists.size(); i++) {
+                        if (checked[i]) {
+                            selected.add(playlists.get(i).getId());
+                        }
+                    }
+                    PlaylistDB.setFeedPlaylists(feedId, selected);
+                    updateSummary(preference, playlists, selected);
                 })
                 .setNegativeButton(R.string.cancel_label, null)
                 .show();

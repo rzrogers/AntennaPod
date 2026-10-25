@@ -29,6 +29,7 @@ public final class PlaylistTables {
     public static final String KEY_LOADED = "loaded";
     public static final String KEY_PLAYLIST_POSITION = "playlist_position";
     public static final String KEY_PLAYLIST_AUTO_DOWNLOAD = "auto_download";
+    public static final String KEY_PLAYLIST_ADD_LOCATION = "add_location";
     public static final String KEY_DELAYED_MEDIA = "media";
     public static final String KEY_DELAYED_DUE = "due";
 
@@ -47,17 +48,24 @@ public final class PlaylistTables {
                 + KEY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                 + KEY_TITLE + " TEXT,"
                 + KEY_LOADED + " INTEGER DEFAULT 0,"
-                + KEY_PLAYLIST_AUTO_DOWNLOAD + " INTEGER DEFAULT 0)");
+                + KEY_PLAYLIST_AUTO_DOWNLOAD + " INTEGER DEFAULT 0,"
+                + KEY_PLAYLIST_ADD_LOCATION + " INTEGER DEFAULT 0)");
         boolean hasAutoDownload = false;
+        boolean hasAddLocation = false;
         try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + TABLE_NAME_PLAYLISTS + ")", null)) {
             int nameIndex = cursor.getColumnIndex("name");
             while (cursor.moveToNext()) {
                 hasAutoDownload |= KEY_PLAYLIST_AUTO_DOWNLOAD.equals(cursor.getString(nameIndex));
+                hasAddLocation |= KEY_PLAYLIST_ADD_LOCATION.equals(cursor.getString(nameIndex));
             }
         }
         if (!hasAutoDownload) {
             db.execSQL("ALTER TABLE " + TABLE_NAME_PLAYLISTS + " ADD COLUMN "
                     + KEY_PLAYLIST_AUTO_DOWNLOAD + " INTEGER DEFAULT 0");
+        }
+        if (!hasAddLocation) {
+            db.execSQL("ALTER TABLE " + TABLE_NAME_PLAYLISTS + " ADD COLUMN "
+                    + KEY_PLAYLIST_ADD_LOCATION + " INTEGER DEFAULT 0");
         }
         db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_PLAYLIST_ITEMS + " ("
                 + KEY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"

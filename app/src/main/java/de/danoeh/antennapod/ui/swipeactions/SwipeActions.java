@@ -41,7 +41,8 @@ public class SwipeActions extends ItemTouchHelper.SimpleCallback implements Life
                     new RemoveFromFavoritesSwipeAction(), new TogglePlaybackStateSwipeAction(),
                     new RemoveFromQueueSwipeAction(), new DeleteSwipeAction(),
                     new RemoveFromHistorySwipeAction(), new MoveToTopSwipeAction(),
-                    new MoveToBottomSwipeAction(), new ShareSwipeAction(), new AddToPlaylistSwipeAction()));
+                    new MoveToBottomSwipeAction(), new ShareSwipeAction(), new AddToPlaylistSwipeAction(),
+                    new PlayNextSwipeAction()));
 
     private final Fragment fragment;
     private final String tag;
@@ -70,7 +71,7 @@ public class SwipeActions extends ItemTouchHelper.SimpleCallback implements Life
                 return action;
             }
         }
-        return null;
+        return PlaylistToggleSwipeAction.fromId(key);
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)

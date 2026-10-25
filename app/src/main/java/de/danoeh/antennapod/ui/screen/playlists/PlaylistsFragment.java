@@ -10,6 +10,8 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.Fragment;
@@ -48,6 +50,18 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
     private ProgressBar progressBar;
     private Disposable disposable;
     private boolean displayUpArrow;
+    private final ActivityResultLauncher<String> exportLauncher = registerForActivityResult(
+            new ActivityResultContracts.CreateDocument("application/json"), uri -> {
+                if (uri != null) {
+                    PlaylistBackup.exportTo(requireContext(), uri);
+                }
+            });
+    private final ActivityResultLauncher<String[]> importLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    PlaylistBackup.importFrom(requireActivity(), uri);
+                }
+            });
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -107,6 +121,12 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
         if (item.getItemId() == R.id.new_playlist_item) {
             PlaylistDialogs.showCreate(requireContext(), null);
             return true;
+        } else if (item.getItemId() == R.id.export_playlists_item) {
+            exportLauncher.launch(PlaylistBackup.FILE_NAME);
+            return true;
+        } else if (item.getItemId() == R.id.import_playlists_item) {
+            importLauncher.launch(new String[]{"*/*"});
+            return true;
         }
         return false;
     }
@@ -143,16 +163,8 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
         PopupMenu popup = new PopupMenu(requireContext(), anchor);
         popup.inflate(R.menu.playlist);
         popup.getMenu().findItem(R.id.playlist_sort_item).setVisible(false);
-        popup.setOnMenuItemClickListener(menuItem -> {
-            if (menuItem.getItemId() == R.id.rename_playlist_item) {
-                PlaylistDialogs.showRename(requireContext(), playlist);
-                return true;
-            } else if (menuItem.getItemId() == R.id.delete_playlist_item) {
-                PlaylistDialogs.showDelete(requireContext(), playlist, null);
-                return true;
-            }
-            return false;
-        });
+        popup.setOnMenuItemClickListener(menuItem ->
+                PlaylistDialogs.onMenuItemClick(requireContext(), playlist, menuItem.getItemId(), null));
         popup.show();
     }
 

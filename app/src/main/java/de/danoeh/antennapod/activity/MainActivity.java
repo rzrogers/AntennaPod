@@ -75,6 +75,7 @@ import de.danoeh.antennapod.ui.screen.episode.ItemPagerFragment;
 import de.danoeh.antennapod.ui.screen.feed.FeedItemlistFragment;
 import de.danoeh.antennapod.ui.screen.home.HomeFragment;
 import de.danoeh.antennapod.ui.screen.playback.audio.AudioPlayerFragment;
+import de.danoeh.antennapod.ui.screen.playlists.PlaylistPlayer;
 import de.danoeh.antennapod.ui.screen.playlists.PlaylistsFragment;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 import de.danoeh.antennapod.ui.screen.queue.QueueFragment;
@@ -748,6 +749,7 @@ public class MainActivity extends CastEnabledActivity implements NavigationToolb
             handleDeeplink(intent.getData());
         }
 
+        PlaylistPlayer.handleIntent(this, intent);
         if (intent.getBooleanExtra(MainActivityStarter.EXTRA_OPEN_DRAWER, false) && drawerLayout != null) {
             drawerLayout.open();
         }

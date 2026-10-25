@@ -6,13 +6,15 @@ public class Playlist {
     private final boolean loaded;
     private final int episodeCount;
     private final int autoDownload;
+    private final int addLocation;
 
-    public Playlist(long id, String title, boolean loaded, int episodeCount, int autoDownload) {
+    public Playlist(long id, String title, boolean loaded, int episodeCount, int autoDownload, int addLocation) {
         this.id = id;
         this.title = title;
         this.loaded = loaded;
         this.episodeCount = episodeCount;
         this.autoDownload = autoDownload;
+        this.addLocation = addLocation;
     }
 
     public long getId() {
@@ -33,5 +35,9 @@ public class Playlist {
 
     public int getAutoDownload() {
         return autoDownload;
+    }
+
+    public int getAddLocation() {
+        return addLocation;
     }
 }

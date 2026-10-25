@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -11,6 +12,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.util.Pair;
 import androidx.gridlayout.widget.GridLayout;
 
 import java.util.ArrayList;
@@ -30,8 +32,14 @@ import de.danoeh.antennapod.ui.screen.InboxFragment;
 import de.danoeh.antennapod.ui.screen.PlaybackHistoryFragment;
 import de.danoeh.antennapod.ui.screen.queue.QueueFragment;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
+import de.danoeh.antennapod.model.feed.Playlist;
+import de.danoeh.antennapod.storage.database.PlaylistDB;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class SwipeActionsDialog {
+    private static final String TAG = "SwipeActionsDialog";
     private static final int LEFT = 1;
     private static final int RIGHT = 0;
 
@@ -48,9 +56,17 @@ public class SwipeActionsDialog {
     }
 
     public void show(Callback prefsChanged) {
-        SwipeActions.Actions actions = SwipeActions.getPrefsWithDefaults(context, tag);
-        leftAction = actions.left;
-        rightAction = actions.right;
+        Observable.fromCallable(() -> new Pair<>(PlaylistDB.getPlaylists(),
+                        SwipeActions.getPrefsWithDefaults(context, tag)))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> show(prefsChanged, result.first, result.second),
+                        error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private void show(Callback prefsChanged, List<Playlist> playlists, SwipeActions.Actions actions) {
+        leftAction = actions.left != null ? actions.left : new AddToPlaylistSwipeAction();
+        rightAction = actions.right != null ? actions.right : new AddToPlaylistSwipeAction();
 
         final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context);
 
@@ -63,6 +79,10 @@ public class SwipeActionsDialog {
             keys.add(new AddToQueueSwipeAction());
         }
         keys.add(new AddToPlaylistSwipeAction());
+        keys.add(new PlayNextSwipeAction());
+        for (Playlist playlist : playlists) {
+            keys.add(new PlaylistToggleSwipeAction(playlist.getId(), playlist.getTitle()));
+        }
         if (!tag.equals(CompletedDownloadsFragment.TAG)) {
             keys.add(new StartDownloadSwipeAction());
         }

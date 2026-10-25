@@ -24,6 +24,7 @@ public interface SwipeAction {
     String REMOVE_FROM_HISTORY = "REMOVE_FROM_HISTORY";
     String SHARE = "SHARE";
     String ADD_TO_PLAYLIST = "ADD_TO_PLAYLIST";
+    String PLAY_NEXT = "PLAY_NEXT";
 
     String getId();
 

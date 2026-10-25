@@ -35,10 +35,6 @@ import java.util.Collections;
 import java.util.List;
 
 import de.danoeh.antennapod.R;
-import de.danoeh.antennapod.actionbutton.ItemActionButton;
-import de.danoeh.antennapod.actionbutton.PlayActionButton;
-import de.danoeh.antennapod.actionbutton.PlayLocalActionButton;
-import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
@@ -47,12 +43,7 @@ import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
-import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.Playlist;
-import de.danoeh.antennapod.model.feed.SortOrder;
-import de.danoeh.antennapod.playback.service.PlaybackStatus;
-import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.storage.database.FeedItemPermutors;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.MenuItemUtils;
@@ -65,7 +56,6 @@ import de.danoeh.antennapod.ui.episodeslist.EpisodeItemListAdapter;
 import de.danoeh.antennapod.ui.episodeslist.EpisodeItemListRecyclerView;
 import de.danoeh.antennapod.ui.episodeslist.EpisodeItemViewHolder;
 import de.danoeh.antennapod.ui.episodeslist.FeedItemMenuHandler;
-import de.danoeh.antennapod.ui.screen.feed.ItemSortDialog;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Observable;
@@ -80,7 +70,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
 
     private long playlistId;
     private String playlistTitle;
-    private int autoDownload;
+    private Playlist current;
     private boolean loaded;
     private MaterialToolbar toolbar;
     private TextView infoBar;
@@ -125,7 +115,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         AppBarLayout appBar = root.findViewById(R.id.appbar);
         View playButton = inflater.inflate(R.layout.playlist_play_button, appBar, false);
         appBar.addView(playButton);
-        playButton.setOnClickListener(v -> playPlaylist());
+        playButton.setOnClickListener(v -> PlaylistPlayer.play(requireActivity(), playlistId));
 
         SwipeRefreshLayout swipeRefreshLayout = root.findViewById(R.id.swipeRefresh);
         swipeRefreshLayout.setEnabled(false);
@@ -179,63 +169,10 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         adapter = null;
     }
 
-    private void playPlaylist() {
-        Context context = requireActivity();
-        String noEpisodesMessage = getString(R.string.playlist_no_playable_episodes);
-        long id = playlistId;
-        Observable.fromCallable(() -> {
-            PlaylistDB.playPlaylist(id).get();
-            Playlist loadedPlaylist = PlaylistDB.getLoadedPlaylist();
-            List<FeedItem> queue = DBReader.getQueue();
-            if (loadedPlaylist == null || loadedPlaylist.getId() != id) {
-                return Collections.<FeedItem>emptyList();
-            }
-            return queue;
-        })
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(queue -> {
-                    if (queue.isEmpty()) {
-                        EventBus.getDefault().post(new MessageEvent(noEpisodesMessage));
-                        return;
-                    }
-                    startPlayback(context, queue.get(0));
-                }, error -> Log.e(TAG, Log.getStackTraceString(error)));
-    }
-
-    private static void startPlayback(Context context, FeedItem item) {
-        FeedMedia media = item.getMedia();
-        if (media == null || PlaybackStatus.isCurrentlyPlaying(media)) {
-            return;
-        }
-        ItemActionButton button;
-        if (item.getFeed().isLocalFeed()) {
-            button = new PlayLocalActionButton(item);
-        } else if (media.isDownloaded()) {
-            button = new PlayActionButton(item);
-        } else {
-            button = new StreamActionButton(item);
-        }
-        button.onClick(context);
-    }
-
     @Override
     public boolean onMenuItemClick(MenuItem item) {
-        Playlist playlist = new Playlist(playlistId, playlistTitle, loaded, 0, 0);
-        if (item.getItemId() == R.id.playlist_sort_item) {
-            PlaylistSortDialog.newInstance(playlistId).show(getChildFragmentManager(), "SortDialog");
-            return true;
-        } else if (item.getItemId() == R.id.rename_playlist_item) {
-            PlaylistDialogs.showRename(requireContext(), playlist);
-            return true;
-        } else if (item.getItemId() == R.id.delete_playlist_item) {
-            PlaylistDialogs.showDelete(requireContext(), playlist, null);
-            return true;
-        } else if (item.getItemId() == R.id.playlist_auto_download_item) {
-            PlaylistDialogs.showAutoDownload(requireContext(), playlistId, autoDownload);
-            return true;
-        }
-        return false;
+        Playlist playlist = current != null ? current : new Playlist(playlistId, playlistTitle, false, 0, 0, 0);
+        return PlaylistDialogs.onMenuItemClick(requireContext(), playlist, item.getItemId(), null);
     }
 
     @Override
@@ -299,13 +236,13 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
             disposable.dispose();
         }
         disposable = Observable.fromCallable(() -> {
-            Playlist current = null;
+            Playlist found = null;
             for (Playlist playlist : PlaylistDB.getPlaylists()) {
                 if (playlist.getId() == playlistId) {
-                    current = playlist;
+                    found = playlist;
                 }
             }
-            return new PlaylistContent(current, PlaylistDB.getItems(playlistId));
+            return new PlaylistContent(found, PlaylistDB.getItems(playlistId));
         })
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -318,7 +255,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
                         return;
                     }
                     playlistTitle = content.playlist.getTitle();
-                    autoDownload = content.playlist.getAutoDownload();
+                    current = content.playlist;
                     loaded = content.playlist.isLoaded();
                     toolbar.setTitle(playlistTitle);
                     progressBar.setVisibility(View.GONE);
@@ -483,45 +420,6 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
                         .decorate();
             }
             super.onChildDraw(c, recyclerView, viewHolder, dx, dy, actionState, isCurrentlyActive);
-        }
-    }
-
-    public static class PlaylistSortDialog extends ItemSortDialog {
-        private static final String ARG_ID = "playlist_id";
-
-        static PlaylistSortDialog newInstance(long playlistId) {
-            PlaylistSortDialog dialog = new PlaylistSortDialog();
-            Bundle args = new Bundle();
-            args.putLong(ARG_ID, playlistId);
-            dialog.setArguments(args);
-            return dialog;
-        }
-
-        @Override
-        protected void onAddItem(int title, SortOrder ascending, SortOrder descending, boolean ascendingIsDefault) {
-            if (ascending == SortOrder.EPISODE_FILENAME_A_Z || ascending == SortOrder.SIZE_SMALL_LARGE) {
-                return;
-            }
-            if (ascending == SortOrder.DATE_OLD_NEW || ascending == SortOrder.SMART_SHUFFLE_OLD_NEW) {
-                ascendingIsDefault = true;
-            }
-            super.onAddItem(title, ascending, descending, ascendingIsDefault);
-        }
-
-        @Override
-        protected void onSelectionChanged() {
-            super.onSelectionChanged();
-            SortOrder order = sortOrder;
-            if (order == null) {
-                return;
-            }
-            long playlistId = requireArguments().getLong(ARG_ID);
-            Completable.fromAction(() -> {
-                List<FeedItem> playlistItems = PlaylistDB.getItems(playlistId);
-                FeedItemPermutors.getPermutor(order).reorder(playlistItems);
-                PlaylistDB.setOrder(playlistId, idsOf(playlistItems));
-            }).subscribeOn(Schedulers.io()).subscribe(() -> { },
-                    error -> Log.e(TAG, Log.getStackTraceString(error)));
         }
     }
 }
