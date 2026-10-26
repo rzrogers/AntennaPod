@@ -327,6 +327,7 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
                 }
                 return false;
             });
+            holder.isInQueue.setVisibility(View.GONE);
         }
 
         @Override

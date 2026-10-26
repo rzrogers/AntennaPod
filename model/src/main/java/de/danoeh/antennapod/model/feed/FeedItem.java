@@ -23,6 +23,7 @@ public class FeedItem implements Serializable {
     public static final String TAG_QUEUE = "Queue";
     /** tag that indicates this item is in favorites */
     public static final String TAG_FAVORITE = "Favorite";
+    public static final String TAG_PLAYLIST = "Playlist";
 
     private long id;
     /**

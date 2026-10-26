@@ -103,7 +103,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         pubDate.setContentDescription(DateFormatter.formatForAccessibility(item.getPubDate()));
         isInbox.setVisibility(item.isNew() ? View.VISIBLE : View.GONE);
         isFavorite.setVisibility(item.isTagged(FeedItem.TAG_FAVORITE) ? View.VISIBLE : View.GONE);
-        isInQueue.setVisibility(item.isTagged(FeedItem.TAG_QUEUE) ? View.VISIBLE : View.GONE);
+        isInQueue.setVisibility(item.isTagged(FeedItem.TAG_PLAYLIST) ? View.VISIBLE : View.GONE);
         container.setAlpha(item.isPlayed() ? 0.5f : 1.0f);
 
         ItemActionButton actionButton = ItemActionButton.forItem(item);

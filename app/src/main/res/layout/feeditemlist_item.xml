@@ -125,9 +125,9 @@
                     android:id="@+id/ivInPlaylist"
                     android:layout_width="12sp"
                     android:layout_height="12sp"
-                    android:contentDescription="@string/in_queue_label"
+                    android:contentDescription="@string/in_playlist_label"
                     app:tint="?attr/colorOnSurfaceVariant"
-                    app:srcCompat="@drawable/ic_playlist_play" />
+                    app:srcCompat="@drawable/ic_playlists" />
 
                 <TextView
                     android:id="@+id/separatorIcons"

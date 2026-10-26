@@ -88,6 +88,8 @@
     </plurals>
     <string name="playlists_import_missing_title">Some episodes weren\'t found</string>
     <string name="playlists_import_missing_message">These episodes couldn\'t be found in AntennaPod+ and were skipped:\n\n%1$s</string>
+    <string name="in_playlist_label">In a playlist</string>
+    <string name="playback_speed_button_label">Playback speed %1$s</string>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
     <string name="downloads_label_short">Downloads</string>

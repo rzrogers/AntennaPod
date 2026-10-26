@@ -43,6 +43,7 @@ import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.FeedListUpdateEvent;
 import de.danoeh.antennapod.event.FeedUpdateRunningEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
+import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
 import de.danoeh.antennapod.ui.swipeactions.SwipeActions;
 import de.danoeh.antennapod.model.feed.FeedItem;
@@ -394,6 +395,11 @@ public abstract class EpisodesListFragment extends Fragment
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onFeedListChanged(FeedListUpdateEvent event) {
+        loadItems();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onPlaylistChanged(PlaylistEvent event) {
         loadItems();
     }
 

@@ -14,6 +14,7 @@ import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -391,6 +392,13 @@ public class Media3PlaybackService extends MediaLibraryService {
         public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
             PlaybackService.isRunning = !Util.shouldShowPlayButton(player);
             updatePlaybackPreferences();
+        }
+
+        @Override
+        public void onPlaybackParametersChanged(@NonNull PlaybackParameters playbackParameters) {
+            if (mediaSession != null) {
+                sessionCallback.refreshNotification(mediaSession);
+            }
         }
 
         @Override

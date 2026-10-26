@@ -269,6 +269,7 @@ public class PodDBAdapter {
     public static final String SELECT_KEY_FEED_ID = "feed_id";
     public static final String SELECT_KEY_IS_FAVORITE = "is_favorite";
     public static final String SELECT_KEY_IS_IN_QUEUE = "is_in_queue";
+    public static final String SELECT_KEY_IS_IN_PLAYLIST = "is_in_playlist";
 
     private static final String KEYS_FEED_ITEM_WITHOUT_DESCRIPTION =
             TABLE_NAME_FEED_ITEMS + "." + KEY_ID + " AS " + SELECT_KEY_ITEM_ID + ", "
@@ -290,7 +291,10 @@ public class PodDBAdapter {
             + TABLE_NAME_FEED_ITEMS + "." + KEY_ID + " IN (SELECT " + TABLE_NAME_FAVORITES + "." + KEY_FEEDITEM
             + " FROM " + TABLE_NAME_FAVORITES + ") AS " + SELECT_KEY_IS_FAVORITE + ", "
             + TABLE_NAME_FEED_ITEMS + "." + KEY_ID + " IN (SELECT " + TABLE_NAME_QUEUE + "." + KEY_FEEDITEM
-            + " FROM " + TABLE_NAME_QUEUE + ") AS " + SELECT_KEY_IS_IN_QUEUE;
+            + " FROM " + TABLE_NAME_QUEUE + ") AS " + SELECT_KEY_IS_IN_QUEUE + ", "
+            + TABLE_NAME_FEED_ITEMS + "." + KEY_ID + " IN (SELECT " + PlaylistTables.TABLE_NAME_PLAYLIST_ITEMS
+            + "." + KEY_FEEDITEM + " FROM " + PlaylistTables.TABLE_NAME_PLAYLIST_ITEMS + ") AS "
+            + SELECT_KEY_IS_IN_PLAYLIST;
 
     private static final String KEYS_FEED_MEDIA =
             TABLE_NAME_FEED_MEDIA + "." + KEY_ID + " AS " + SELECT_KEY_MEDIA_ID + ", "
@@ -774,6 +778,7 @@ public class PodDBAdapter {
                 db.update(TABLE_NAME_FEED_ITEMS, values, KEY_ID + "=?", new String[]{String.valueOf(item.getId())});
                 if (played == FeedItem.PLAYED) {
                     PlaylistTables.removeItems(db, String.valueOf(item.getId()));
+                    item.removeTag(FeedItem.TAG_PLAYLIST);
                 }
 
                 if (resetMediaPosition && item.hasMedia()) {
