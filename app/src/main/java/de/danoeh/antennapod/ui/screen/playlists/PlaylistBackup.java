@@ -28,6 +28,7 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
 import de.danoeh.antennapod.model.feed.Playlist;
+import de.danoeh.antennapod.model.feed.PlaylistSpeedTier;
 import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
@@ -62,6 +63,14 @@ public final class PlaylistBackup {
                 entry.put("title", playlist.getTitle());
                 entry.put("autoDownload", playlist.getAutoDownload());
                 entry.put("addLocation", playlist.getAddLocation());
+                JSONArray speeds = new JSONArray();
+                for (PlaylistSpeedTier tier : PlaylistDB.getSpeedTiers(playlist.getId())) {
+                    JSONObject speed = new JSONObject();
+                    speed.put("hours", tier.getHours());
+                    speed.put("speed", Math.round(tier.getSpeed() * 100) / 100.0);
+                    speeds.put(speed);
+                }
+                entry.put("speeds", speeds);
                 entry.put("episodes", episodes);
                 playlists.put(entry);
             }
@@ -122,8 +131,18 @@ public final class PlaylistBackup {
                         missing.add(episode.optString("feedTitle") + ": " + episode.optString("title"));
                     }
                 }
+                List<PlaylistSpeedTier> speedTiers = null;
+                JSONArray speeds = entry.optJSONArray("speeds");
+                if (speeds != null) {
+                    speedTiers = new ArrayList<>();
+                    for (int j = 0; j < speeds.length(); j++) {
+                        JSONObject speed = speeds.getJSONObject(j);
+                        speedTiers.add(new PlaylistSpeedTier(speed.optInt("hours", -1),
+                                (float) speed.optDouble("speed", 0)));
+                    }
+                }
                 PlaylistDB.importPlaylist(title, entry.optInt("autoDownload", 0),
-                        entry.optInt("addLocation", PlaylistDB.ADD_LOCATION_BACK), itemIds).get();
+                        entry.optInt("addLocation", PlaylistDB.ADD_LOCATION_BACK), itemIds, speedTiers).get();
             }
             return new ImportResult(playlists.length(), missing);
         })

@@ -79,6 +79,8 @@ public abstract class WidgetUpdater {
 
         RemoteViews views;
         views = new RemoteViews(context.getPackageName(), R.layout.player_widget);
+        views.setImageViewResource(R.id.butRew, WidgetJumpIcon.back(UserPreferences.getRewindSecs()));
+        views.setImageViewResource(R.id.butFastForward, WidgetJumpIcon.forward(UserPreferences.getFastForwardSecs()));
 
         if (widgetState.media != null) {
             views.setOnClickPendingIntent(R.id.layout_left, startMediaPlayer);

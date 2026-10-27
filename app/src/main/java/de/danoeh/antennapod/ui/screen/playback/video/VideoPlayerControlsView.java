@@ -30,6 +30,7 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.episodes.TimeSpeedConverter;
 import de.danoeh.antennapod.ui.screen.feed.preferences.SkipPreferenceDialog;
+import de.danoeh.antennapod.ui.screen.playback.JumpIcons;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
 import de.danoeh.antennapod.event.playback.SpeedChangedEvent;
 import org.greenrobot.eventbus.EventBus;
@@ -103,6 +104,7 @@ public class VideoPlayerControlsView extends FrameLayout {
         binding = VideoPlayerControlsBinding.inflate(LayoutInflater.from(getContext()), this, true);
         hideControls(false);
         binding.playButton.setIsVideoScreen(true);
+        updateJumpIcons();
         binding.playButton.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onPlayPause();
@@ -119,7 +121,7 @@ public class VideoPlayerControlsView extends FrameLayout {
 
         binding.rewindButton.setOnLongClickListener(v -> {
             SkipPreferenceDialog.showSkipPreference(getContext(),
-                    SkipPreferenceDialog.SkipDirection.SKIP_REWIND, null);
+                    SkipPreferenceDialog.SkipDirection.SKIP_REWIND, null, this::updateJumpIcons);
             return true;
         });
 
@@ -132,7 +134,7 @@ public class VideoPlayerControlsView extends FrameLayout {
 
         binding.fastForwardButton.setOnLongClickListener(v -> {
             SkipPreferenceDialog.showSkipPreference(getContext(),
-                    SkipPreferenceDialog.SkipDirection.SKIP_FORWARD, null);
+                    SkipPreferenceDialog.SkipDirection.SKIP_FORWARD, null, this::updateJumpIcons);
             return true;
         });
 
@@ -345,6 +347,11 @@ public class VideoPlayerControlsView extends FrameLayout {
         lastScreenTap = System.currentTimeMillis();
     }
 
+    private void updateJumpIcons() {
+        binding.rewindButton.setImageResource(JumpIcons.backVideo(UserPreferences.getRewindSecs()));
+        binding.fastForwardButton.setImageResource(JumpIcons.forwardVideo(UserPreferences.getFastForwardSecs()));
+    }
+
     private void showSkipAnimation(boolean isForward) {
         AnimationSet skipAnimation = new AnimationSet(true);
         skipAnimation.addAnimation(new ScaleAnimation(1f, 2f, 1f, 2f,
@@ -355,10 +362,10 @@ public class VideoPlayerControlsView extends FrameLayout {
 
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) binding.skipAnimationImage.getLayoutParams();
         if (isForward) {
-            binding.skipAnimationImage.setImageResource(R.drawable.ic_fast_forward_video_white);
+            binding.skipAnimationImage.setImageResource(JumpIcons.forwardVideo(UserPreferences.getFastForwardSecs()));
             params.gravity = Gravity.RIGHT | Gravity.CENTER_VERTICAL;
         } else {
-            binding.skipAnimationImage.setImageResource(R.drawable.ic_fast_rewind_video_white);
+            binding.skipAnimationImage.setImageResource(JumpIcons.backVideo(UserPreferences.getRewindSecs()));
             params.gravity = Gravity.LEFT | Gravity.CENTER_VERTICAL;
         }
 

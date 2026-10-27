@@ -29,7 +29,9 @@ import de.danoeh.antennapod.event.PlaylistEvent;
 import de.danoeh.antennapod.event.QueueEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.Playlist;
+import de.danoeh.antennapod.model.feed.PlaylistSpeedTier;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.storage.database.mapper.FeedItemCursor;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
@@ -40,12 +42,17 @@ import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_ADD_LOCATION;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_AUTO_DOWNLOAD;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_PLAYLIST_POSITION;
+import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_SPEED;
+import static de.danoeh.antennapod.storage.database.PlaylistTables.KEY_SPEED_HOURS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLISTS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_FEEDS;
 import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_ITEMS;
+import static de.danoeh.antennapod.storage.database.PlaylistTables.TABLE_NAME_PLAYLIST_SPEEDS;
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_DURATION;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEED;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_FEEDITEM;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_ID;
+import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_POSITION;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.KEY_TITLE;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_ITEMS;
 import static de.danoeh.antennapod.storage.database.PodDBAdapter.TABLE_NAME_FEED_MEDIA;
@@ -86,6 +93,16 @@ public final class PlaylistDB {
                 result.add(new Playlist(cursor.getLong(0), cursor.getString(1),
                         cursor.getInt(2) == 1, cursor.getInt(5), cursor.getInt(3), cursor.getInt(4)));
             }
+        }
+        Set<Long> withSpeeds = new HashSet<>();
+        try (Cursor cursor = db.rawQuery("SELECT DISTINCT " + KEY_PLAYLIST + " FROM "
+                + TABLE_NAME_PLAYLIST_SPEEDS, null)) {
+            while (cursor.moveToNext()) {
+                withSpeeds.add(cursor.getLong(0));
+            }
+        }
+        for (Playlist playlist : result) {
+            playlist.setHasSpeedTiers(withSpeeds.contains(playlist.getId()));
         }
         return result;
     }
@@ -198,6 +215,7 @@ public final class PlaylistDB {
             try {
                 db.delete(TABLE_NAME_PLAYLIST_ITEMS, KEY_PLAYLIST + "=?", args);
                 db.delete(TABLE_NAME_PLAYLIST_FEEDS, KEY_PLAYLIST + "=?", args);
+                db.delete(TABLE_NAME_PLAYLIST_SPEEDS, KEY_PLAYLIST + "=?", args);
                 db.delete(TABLE_NAME_PLAYLISTS, KEY_ID + "=?", args);
                 db.setTransactionSuccessful();
             } finally {
@@ -464,7 +482,8 @@ public final class PlaylistDB {
         });
     }
 
-    public static Future<?> importPlaylist(String title, int autoDownload, int addLocation, List<Long> itemIds) {
+    public static Future<?> importPlaylist(String title, int autoDownload, int addLocation, List<Long> itemIds,
+                                           List<PlaylistSpeedTier> speedTiers) {
         return runOnDbThread(() -> {
             SQLiteDatabase db = db();
             Set<Long> withMedia = getIdsWithMedia(db, itemIds);
@@ -491,6 +510,9 @@ public final class PlaylistDB {
             } else {
                 db.update(TABLE_NAME_PLAYLISTS, values, KEY_ID + "=?", new String[]{String.valueOf(playlistId)});
             }
+            if (speedTiers != null) {
+                writeSpeedTiers(db, playlistId, speedTiers);
+            }
             if (isLoaded(playlistId)) {
                 List<FeedItem> items = new ArrayList<>();
                 for (long itemId : ids) {
@@ -505,6 +527,85 @@ public final class PlaylistDB {
             }
             EventBus.getDefault().post(new PlaylistEvent(playlistId));
         });
+    }
+
+    @NonNull
+    public static synchronized List<PlaylistSpeedTier> getSpeedTiers(long playlistId) {
+        List<PlaylistSpeedTier> tiers = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery("SELECT " + KEY_SPEED_HOURS + ", " + KEY_SPEED + " FROM "
+                + TABLE_NAME_PLAYLIST_SPEEDS + " WHERE " + KEY_PLAYLIST + "=? ORDER BY " + KEY_SPEED_HOURS + " ASC",
+                new String[]{String.valueOf(playlistId)})) {
+            while (cursor.moveToNext()) {
+                tiers.add(new PlaylistSpeedTier(cursor.getInt(0), cursor.getFloat(1)));
+            }
+        }
+        return tiers;
+    }
+
+    public static Future<?> setSpeedTiers(long playlistId, List<PlaylistSpeedTier> tiers) {
+        return runOnDbThread(() -> {
+            writeSpeedTiers(db(), playlistId, tiers);
+            EventBus.getDefault().post(new PlaylistEvent(playlistId));
+        });
+    }
+
+    private static void writeSpeedTiers(SQLiteDatabase db, long playlistId, List<PlaylistSpeedTier> tiers) {
+        Map<Integer, Float> byHours = new HashMap<>();
+        for (PlaylistSpeedTier tier : tiers) {
+            if (tier.getHours() >= 0 && tier.getSpeed() > 0) {
+                byHours.put(tier.getHours(), tier.getSpeed());
+            }
+        }
+        db.beginTransactionNonExclusive();
+        try {
+            db.delete(TABLE_NAME_PLAYLIST_SPEEDS, KEY_PLAYLIST + "=?", new String[]{String.valueOf(playlistId)});
+            ContentValues values = new ContentValues();
+            for (Map.Entry<Integer, Float> entry : byHours.entrySet()) {
+                values.clear();
+                values.put(KEY_PLAYLIST, playlistId);
+                values.put(KEY_SPEED_HOURS, entry.getKey());
+                values.put(KEY_SPEED, entry.getValue());
+                db.insert(TABLE_NAME_PLAYLIST_SPEEDS, null, values);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public static synchronized long getTimeLeft(long playlistId) {
+        try (Cursor cursor = db().rawQuery("SELECT SUM(MAX(m." + KEY_DURATION + " - MAX(m." + KEY_POSITION
+                + ", 0), 0)) FROM " + TABLE_NAME_PLAYLIST_ITEMS + " i INNER JOIN " + TABLE_NAME_FEED_MEDIA
+                + " m ON m." + KEY_FEEDITEM + " = i." + KEY_FEEDITEM + " WHERE i." + KEY_PLAYLIST + "=?",
+                new String[]{String.valueOf(playlistId)})) {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0;
+        }
+    }
+
+    public static synchronized void updateSpeedDecision(FeedMedia startingMedia) {
+        long playlistId = PlaylistTables.getLoadedPlaylistId(db());
+        if (playlistId == 0) {
+            UserPreferences.clearPlusPlaylistSpeed();
+            return;
+        }
+        long timeLeft = getTimeLeft(playlistId);
+        PlaylistSpeedTier match = null;
+        for (PlaylistSpeedTier tier : getSpeedTiers(playlistId)) {
+            if (timeLeft > tier.getHours() * 3600000L) {
+                match = tier;
+            }
+        }
+        if (match == null) {
+            UserPreferences.clearPlusPlaylistSpeed();
+            return;
+        }
+        FeedPreferences feedPreferences = null;
+        if (startingMedia != null && startingMedia.getItem() != null && startingMedia.getItem().getFeed() != null) {
+            feedPreferences = startingMedia.getItem().getFeed().getPreferences();
+        }
+        boolean showHasOwnSpeed = feedPreferences != null
+                && feedPreferences.getFeedPlaybackSpeed() != FeedPreferences.SPEED_USE_GLOBAL;
+        UserPreferences.setPlusPlaylistSpeed(playlistId, match.getSpeed(), showHasOwnSpeed ? -1 : match.getHours());
     }
 
     public static synchronized String getPlaylistTitle(long playlistId) {

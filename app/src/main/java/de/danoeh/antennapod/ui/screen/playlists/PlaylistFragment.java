@@ -280,7 +280,8 @@ public class PlaylistFragment extends Fragment implements MaterialToolbar.OnMenu
         String episodes = getResources().getQuantityString(R.plurals.num_episodes, items.size(), items.size());
         String time = Converter.getDurationStringLocalized(getResources(), timeLeft, false);
         String info = getString(R.string.queue_time_left_label, episodes, time);
-        infoBar.setText(loaded ? getString(R.string.playlist_loaded_info, info) : info);
+        infoBar.setText(loaded ? getString(R.string.playlist_loaded_info,
+                PlaylistSpeedDialog.withSpeed(requireContext(), playlistId, info)) : info);
     }
 
     private static List<Long> idsOf(List<FeedItem> list) {

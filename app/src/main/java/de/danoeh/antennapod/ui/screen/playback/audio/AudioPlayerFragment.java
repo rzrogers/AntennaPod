@@ -56,6 +56,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.screen.feed.preferences.SkipPreferenceDialog;
+import de.danoeh.antennapod.ui.screen.playback.JumpIcons;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlayerErrorEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
@@ -207,7 +208,7 @@ public class AudioPlayerFragment extends Fragment implements
         });
         butRev.setOnLongClickListener(v -> {
             SkipPreferenceDialog.showSkipPreference(getContext(),
-                    SkipPreferenceDialog.SkipDirection.SKIP_REWIND, txtvRev);
+                    SkipPreferenceDialog.SkipDirection.SKIP_REWIND, txtvRev, this::updateJumpIcons);
             return true;
         });
         butPlay.setOnClickListener(v -> {
@@ -244,7 +245,7 @@ public class AudioPlayerFragment extends Fragment implements
         });
         butFF.setOnLongClickListener(v -> {
             SkipPreferenceDialog.showSkipPreference(getContext(),
-                    SkipPreferenceDialog.SkipDirection.SKIP_FORWARD, txtvFF);
+                    SkipPreferenceDialog.SkipDirection.SKIP_FORWARD, txtvFF, this::updateJumpIcons);
             return false;
         });
         butSkip.setOnClickListener(v -> {
@@ -360,6 +361,12 @@ public class AudioPlayerFragment extends Fragment implements
         EventBus.getDefault().register(this);
         txtvRev.setText(NumberFormat.getInstance().format(UserPreferences.getRewindSecs()));
         txtvFF.setText(NumberFormat.getInstance().format(UserPreferences.getFastForwardSecs()));
+        updateJumpIcons();
+    }
+
+    private void updateJumpIcons() {
+        butRev.setImageResource(JumpIcons.back(UserPreferences.getRewindSecs()));
+        butFF.setImageResource(JumpIcons.forward(UserPreferences.getFastForwardSecs()));
     }
 
     @Override

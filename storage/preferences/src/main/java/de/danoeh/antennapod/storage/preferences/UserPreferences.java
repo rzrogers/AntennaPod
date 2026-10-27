@@ -90,6 +90,9 @@ public abstract class UserPreferences {
     private static final String PREF_AUTO_DELETE_LOCAL = "prefAutoDeleteLocal";
     private static final String PREF_PLUS_AUTO_DELETE_DELAY = "prefPlusAutoDeleteDelay";
     private static final String PREF_PLUS_PLAYLIST_LOADED = "prefPlusPlaylistLoaded";
+    private static final String PREF_PLUS_PLAYLIST_SPEED = "prefPlusPlaylistSpeed";
+    private static final String PREF_PLUS_PLAYLIST_SPEED_HOURS = "prefPlusPlaylistSpeedHours";
+    private static final String PREF_PLUS_PLAYLIST_SPEED_PLAYLIST = "prefPlusPlaylistSpeedPlaylist";
     public static final String PREF_SMART_MARK_AS_PLAYED_SECS = "prefSmartMarkAsPlayedSecs";
     private static final String PREF_PLAYBACK_SPEED_ARRAY = "prefPlaybackSpeedArray";
     public static final String PREF_PAUSE_PLAYBACK_FOR_FOCUS_LOSS = "prefPauseForFocusLoss";
@@ -464,6 +467,39 @@ public abstract class UserPreferences {
         }
     }
 
+    public static float getPlusPlaylistSpeed() {
+        if (!isPlusPlaylistLoaded()) {
+            return 0;
+        }
+        return prefs.getFloat(PREF_PLUS_PLAYLIST_SPEED, 0);
+    }
+
+    public static int getPlusPlaylistSpeedHours() {
+        return prefs == null ? -1 : prefs.getInt(PREF_PLUS_PLAYLIST_SPEED_HOURS, -1);
+    }
+
+    public static long getPlusPlaylistSpeedPlaylist() {
+        return prefs == null ? 0 : prefs.getLong(PREF_PLUS_PLAYLIST_SPEED_PLAYLIST, 0);
+    }
+
+    public static void setPlusPlaylistSpeed(long playlistId, float speed, int hours) {
+        if (prefs != null) {
+            prefs.edit().putLong(PREF_PLUS_PLAYLIST_SPEED_PLAYLIST, playlistId)
+                    .putFloat(PREF_PLUS_PLAYLIST_SPEED, speed)
+                    .putInt(PREF_PLUS_PLAYLIST_SPEED_HOURS, hours)
+                    .apply();
+        }
+    }
+
+    public static void clearPlusPlaylistSpeed() {
+        if (prefs != null && prefs.contains(PREF_PLUS_PLAYLIST_SPEED_PLAYLIST)) {
+            prefs.edit().remove(PREF_PLUS_PLAYLIST_SPEED_PLAYLIST)
+                    .remove(PREF_PLUS_PLAYLIST_SPEED)
+                    .remove(PREF_PLUS_PLAYLIST_SPEED_HOURS)
+                    .apply();
+        }
+    }
+
     public static int getSmartMarkAsPlayedSecs() {
         return Integer.parseInt(prefs.getString(PREF_SMART_MARK_AS_PLAYED_SECS, "30"));
     }
@@ -605,6 +641,18 @@ public abstract class UserPreferences {
 
     public static int getRewindSecs() {
         return prefs.getInt(PREF_REWIND_SECS, 10);
+    }
+
+    public static boolean isJumpSecsKey(String key) {
+        return PREF_FAST_FORWARD_SECS.equals(key) || PREF_REWIND_SECS.equals(key);
+    }
+
+    public static void registerListener(SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs.registerOnSharedPreferenceChangeListener(listener);
+    }
+
+    public static void unregisterListener(SharedPreferences.OnSharedPreferenceChangeListener listener) {
+        prefs.unregisterOnSharedPreferenceChangeListener(listener);
     }
 
     public static void setProxyConfig(ProxyConfig config) {

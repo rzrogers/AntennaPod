@@ -20,11 +20,13 @@ import com.google.android.material.snackbar.Snackbar;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
 import de.danoeh.antennapod.event.playback.SpeedChangedEvent;
+import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.playback.base.BuildConfig;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.playback.service.internal.MediaLibrarySessionCallback;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.ItemOffsetDecoration;
+import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
@@ -49,6 +51,7 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
     private Chip addCurrentSpeedChip;
     private CheckBox skipSilenceCheckbox;
     private Disposable disposable;
+    private Playable currentMedia;
 
     public VariableSpeedDialog() {
         DecimalFormatSymbols format = new DecimalFormatSymbols(Locale.US);
@@ -98,6 +101,7 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
                     if (controller == null) {
                         return;
                     }
+                    currentMedia = pair;
                     updateSpeed(new SpeedChangedEvent(controller.getCurrentPlaybackSpeedMultiplier()));
                     updateSkipSilence(controller.getCurrentPlaybackSkipSilence());
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
@@ -121,7 +125,9 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
         View root = View.inflate(getContext(), R.layout.speed_select_dialog, null);
         speedSeekBar = root.findViewById(R.id.speed_seek_bar);
         speedSeekBar.setProgressChangedListener(multiplier -> {
-            UserPreferences.setPlaybackSpeed(multiplier);
+            if (!PlaybackSpeedUtils.isPlaylistSpeedInEffect(currentMedia)) {
+                UserPreferences.setPlaybackSpeed(multiplier);
+            }
             if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
                 PlaybackController.bindToMedia3Service(getContext(),
                         controller -> controller.setPlaybackSpeed(multiplier));
@@ -215,7 +221,9 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
                     notifyDataSetChanged();
                     return;
                 }
-                UserPreferences.setPlaybackSpeed(speed);
+                if (!PlaybackSpeedUtils.isPlaylistSpeedInEffect(currentMedia)) {
+                    UserPreferences.setPlaybackSpeed(speed);
+                }
                 if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
                     PlaybackController.bindToMedia3Service(getContext(),
                             controller -> controller.setPlaybackSpeed(speed));

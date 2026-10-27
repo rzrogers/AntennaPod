@@ -42,6 +42,15 @@
     </LinearLayout>
 
     <ImageView
+        android:id="@+id/speed_icon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginStart="12dp"
+        android:contentDescription="@string/playlist_speed_on_label"
+        android:src="@drawable/ic_playback_speed"
+        android:visibility="gone" />
+
+    <ImageView
         android:id="@+id/auto_download_icon"
         android:layout_width="20dp"
         android:layout_height="20dp"

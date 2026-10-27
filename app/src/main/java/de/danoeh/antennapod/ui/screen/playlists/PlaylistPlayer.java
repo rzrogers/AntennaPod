@@ -13,6 +13,7 @@ import org.greenrobot.eventbus.EventBus;
 import java.util.Collections;
 import java.util.List;
 
+import de.danoeh.antennapod.BuildConfig;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.ItemActionButton;
 import de.danoeh.antennapod.actionbutton.PlayActionButton;
@@ -22,10 +23,14 @@ import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.Playlist;
+import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
+import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
+import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -46,6 +51,9 @@ public final class PlaylistPlayer {
             if (loadedPlaylist == null || loadedPlaylist.getId() != playlistId) {
                 return Collections.<FeedItem>emptyList();
             }
+            if (!queue.isEmpty()) {
+                PlaylistDB.updateSpeedDecision(queue.get(0).getMedia());
+            }
             return queue;
         })
                 .subscribeOn(Schedulers.io())
@@ -55,8 +63,20 @@ public final class PlaylistPlayer {
                         EventBus.getDefault().post(new MessageEvent(noEpisodesMessage));
                         return;
                     }
+                    applySpeedIfCurrent(context, queue.get(0));
                     startPlayback(context, queue.get(0));
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private static void applySpeedIfCurrent(Context context, FeedItem item) {
+        FeedMedia media = item.getMedia();
+        if (media == null || media.getId() != PlaybackPreferences.getCurrentlyPlayingFeedMediaId()
+                || !BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
+            return;
+        }
+        PlaybackPreferences.setCurrentlyPlayingTemporaryPlaybackSpeed(FeedPreferences.SPEED_USE_GLOBAL);
+        float speed = PlaybackSpeedUtils.getCurrentPlaybackSpeed(media);
+        PlaybackController.bindToMedia3Service(context, controller -> controller.setPlaybackSpeed(speed));
     }
 
     private static void startPlayback(Context context, FeedItem item) {

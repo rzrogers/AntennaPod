@@ -9,13 +9,20 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import de.danoeh.antennapod.ui.widget.WidgetUpdaterWorker;
 
 /**
  * Shows the dialog that allows setting the skip time.
  */
 public class SkipPreferenceDialog {
     public static void showSkipPreference(Context context, SkipDirection direction, TextView textView) {
+        showSkipPreference(context, direction, textView, null);
+    }
+
+    public static void showSkipPreference(Context context, SkipDirection direction, TextView textView,
+                                          Runnable onChanged) {
         int checked = 0;
 
         int skipSecs;
@@ -50,6 +57,12 @@ public class SkipPreferenceDialog {
                 }
                 if (textView != null) {
                     textView.setText(NumberFormat.getInstance().format(seconds));
+                }
+                if (onChanged != null) {
+                    onChanged.run();
+                }
+                if (!PlaybackService.isRunning) {
+                    WidgetUpdaterWorker.enqueueWork(context);
                 }
                 dialog.dismiss();
             }

@@ -134,7 +134,7 @@
                         android:contentDescription="@string/rewind_label"
                         android:layout_marginEnd="2dp"
                         android:scaleType="centerInside"
-                        android:src="@drawable/ic_widget_fast_rewind" />
+                        android:src="@drawable/ic_widget_jump_back_10" />
 
                     <ImageButton
                         android:id="@+id/butPlayExtended"
@@ -156,7 +156,7 @@
                         android:contentDescription="@string/fast_forward_label"
                         android:layout_marginEnd="2dp"
                         android:scaleType="centerInside"
-                        android:src="@drawable/ic_widget_fast_forward" />
+                        android:src="@drawable/ic_widget_jump_forward_30" />
 
                     <ImageButton
                         android:id="@+id/butSkip"

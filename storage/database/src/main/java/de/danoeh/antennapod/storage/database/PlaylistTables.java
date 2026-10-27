@@ -24,6 +24,7 @@ public final class PlaylistTables {
     public static final String TABLE_NAME_PLAYLIST_ITEMS = "PlaylistItems";
     public static final String TABLE_NAME_PLAYLIST_FEEDS = "PlaylistFeeds";
     public static final String TABLE_NAME_DELAYED_DELETIONS = "DelayedDeletions";
+    public static final String TABLE_NAME_PLAYLIST_SPEEDS = "PlaylistSpeeds";
 
     public static final String KEY_PLAYLIST = "playlist";
     public static final String KEY_LOADED = "loaded";
@@ -32,12 +33,15 @@ public final class PlaylistTables {
     public static final String KEY_PLAYLIST_ADD_LOCATION = "add_location";
     public static final String KEY_DELAYED_MEDIA = "media";
     public static final String KEY_DELAYED_DUE = "due";
+    public static final String KEY_SPEED_HOURS = "hours";
+    public static final String KEY_SPEED = "speed";
 
     static final String[] TABLES = {
             TABLE_NAME_PLAYLISTS,
             TABLE_NAME_PLAYLIST_ITEMS,
             TABLE_NAME_PLAYLIST_FEEDS,
-            TABLE_NAME_DELAYED_DELETIONS
+            TABLE_NAME_DELAYED_DELETIONS,
+            TABLE_NAME_PLAYLIST_SPEEDS
     };
 
     private PlaylistTables() {
@@ -92,7 +96,16 @@ public final class PlaylistTables {
         db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_DELAYED_DELETIONS + " ("
                 + KEY_DELAYED_MEDIA + " INTEGER PRIMARY KEY NOT NULL,"
                 + KEY_DELAYED_DUE + " INTEGER)");
-        UserPreferences.setPlusPlaylistLoaded(getLoadedPlaylistId(db) != 0);
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_PLAYLIST_SPEEDS + " ("
+                + KEY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                + KEY_PLAYLIST + " INTEGER,"
+                + KEY_SPEED_HOURS + " INTEGER,"
+                + KEY_SPEED + " REAL)");
+        long loadedId = getLoadedPlaylistId(db);
+        UserPreferences.setPlusPlaylistLoaded(loadedId != 0);
+        if (UserPreferences.getPlusPlaylistSpeedPlaylist() != loadedId) {
+            UserPreferences.clearPlusPlaylistSpeed();
+        }
     }
 
     static long getLoadedPlaylistId(SQLiteDatabase db) {
@@ -107,6 +120,9 @@ public final class PlaylistTables {
         db.execSQL("UPDATE " + TABLE_NAME_PLAYLISTS + " SET " + KEY_LOADED + " = CASE WHEN "
                 + KEY_ID + " = ? THEN 1 ELSE 0 END", new Object[]{playlistId});
         UserPreferences.setPlusPlaylistLoaded(getLoadedPlaylistId(db) != 0);
+        if (UserPreferences.getPlusPlaylistSpeedPlaylist() != getLoadedPlaylistId(db)) {
+            UserPreferences.clearPlusPlaylistSpeed();
+        }
         return previous;
     }
 

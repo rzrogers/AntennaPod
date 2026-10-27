@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.ui.screen.playlists;
 
 import android.os.Bundle;
+import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -188,9 +189,25 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
             Playlist playlist = playlists.get(position);
             holder.title.setText(playlist.getTitle());
             holder.autoDownloadIcon.setVisibility(playlist.getAutoDownload() != 0 ? View.VISIBLE : View.GONE);
+            holder.speedIcon.setVisibility(playlist.hasSpeedTiers() ? View.VISIBLE : View.GONE);
             String count = getResources().getQuantityString(R.plurals.num_episodes,
-                    playlist.getEpisodeCount(), playlist.getEpisodeCount());
-            holder.count.setText(playlist.isLoaded() ? getString(R.string.playlist_loaded_info, count) : count);
+                    playlist.getEpisodeCount(), playlist.getEpisodeCount()).replace(' ', '\u00A0');
+            if (playlist.isLoaded()) {
+                String full = getString(R.string.playlist_loaded_info,
+                        PlaylistSpeedDialog.withSpeed(requireContext(), playlist.getId(), count));
+                holder.count.setText(full);
+                holder.count.post(() -> {
+                    Layout layout = holder.count.getLayout();
+                    int countStart = full.lastIndexOf(count);
+                    if (layout != null && layout.getLineCount() > 1 && countStart > 0
+                            && full.equals(holder.count.getText().toString())) {
+                        String head = full.substring(0, countStart).replaceAll("[\\s\u00A0\u00B7\u2022]+$", "");
+                        holder.count.setText(head + "\n" + count);
+                    }
+                });
+            } else {
+                holder.count.setText(count);
+            }
             holder.itemView.setOnClickListener(v -> ((MainActivity) requireActivity())
                     .loadChildFragment(PlaylistFragment.newInstance(playlist.getId(), playlist.getTitle())));
             holder.itemView.setOnLongClickListener(v -> {
@@ -209,12 +226,14 @@ public class PlaylistsFragment extends Fragment implements MaterialToolbar.OnMen
         final TextView title;
         final TextView count;
         final ImageView autoDownloadIcon;
+        final ImageView speedIcon;
 
         PlaylistViewHolder(View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.title);
             count = itemView.findViewById(R.id.count);
             autoDownloadIcon = itemView.findViewById(R.id.auto_download_icon);
+            speedIcon = itemView.findViewById(R.id.speed_icon);
         }
     }
 }

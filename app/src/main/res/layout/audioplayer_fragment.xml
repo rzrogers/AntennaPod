@@ -187,11 +187,12 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/rewind_label"
                     android:scaleType="fitCenter"
-                    app:srcCompat="@drawable/ic_fast_rewind"
-                    tools:srcCompat="@drawable/ic_fast_rewind" />
+                    app:srcCompat="@drawable/ic_jump_back_10"
+                    tools:srcCompat="@drawable/ic_jump_back_10" />
 
                 <TextView
                     android:id="@+id/txtvRev"
+                    android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_below="@id/butRev"
@@ -246,11 +247,12 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/fast_forward_label"
                     android:scaleType="fitCenter"
-                    app:srcCompat="@drawable/ic_fast_forward"
-                    tools:srcCompat="@drawable/ic_fast_forward" />
+                    app:srcCompat="@drawable/ic_jump_forward_30"
+                    tools:srcCompat="@drawable/ic_jump_forward_30" />
 
                 <TextView
                     android:id="@+id/txtvFF"
+                    android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_below="@id/butFF"

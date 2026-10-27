@@ -28,10 +28,26 @@ public abstract class PlaybackSpeedUtils {
                 }
             }
         }
+        if (playbackSpeed == FeedPreferences.SPEED_USE_GLOBAL && UserPreferences.getPlusPlaylistSpeed() > 0) {
+            playbackSpeed = UserPreferences.getPlusPlaylistSpeed();
+        }
         if (playbackSpeed == FeedPreferences.SPEED_USE_GLOBAL) {
             playbackSpeed = UserPreferences.getPlaybackSpeed();
         }
         return playbackSpeed;
+    }
+
+    public static boolean isPlaylistSpeedInEffect(Playable media) {
+        if (UserPreferences.getPlusPlaylistSpeed() <= 0) {
+            return false;
+        }
+        if (media instanceof FeedMedia && ((FeedMedia) media).getItem() != null) {
+            Feed feed = ((FeedMedia) media).getItem().getFeed();
+            if (feed != null && feed.getPreferences() != null) {
+                return feed.getPreferences().getFeedPlaybackSpeed() == FeedPreferences.SPEED_USE_GLOBAL;
+            }
+        }
+        return true;
     }
 
     /**

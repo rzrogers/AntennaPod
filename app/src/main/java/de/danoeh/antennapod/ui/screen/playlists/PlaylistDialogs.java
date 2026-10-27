@@ -33,6 +33,8 @@ public final class PlaylistDialogs {
             showAddLocation(context, playlist.getId(), playlist.getAddLocation());
         } else if (itemId == R.id.playlist_auto_download_item) {
             showAutoDownload(context, playlist.getId(), playlist.getAutoDownload());
+        } else if (itemId == R.id.playlist_speed_item) {
+            PlaylistSpeedDialog.show(context, playlist);
         } else if (itemId == R.id.playlist_add_to_home_screen_item) {
             PlaylistPlayer.requestShortcut(context, playlist);
         } else if (itemId == R.id.rename_playlist_item) {

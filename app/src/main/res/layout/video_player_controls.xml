@@ -49,7 +49,7 @@
             android:layout_margin="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/rewind_label"
-            app:srcCompat="@drawable/ic_fast_rewind_video_white" />
+            app:srcCompat="@drawable/ic_jump_back_10_video_white" />
 
         <de.danoeh.antennapod.ui.screen.playback.PlayButton
             android:id="@+id/playButton"
@@ -67,7 +67,7 @@
             android:layout_margin="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/fast_forward_label"
-            app:srcCompat="@drawable/ic_fast_forward_video_white" />
+            app:srcCompat="@drawable/ic_jump_forward_30_video_white" />
 
     </LinearLayout>
 

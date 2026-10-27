@@ -7,6 +7,7 @@ public class Playlist {
     private final int episodeCount;
     private final int autoDownload;
     private final int addLocation;
+    private boolean hasSpeedTiers;
 
     public Playlist(long id, String title, boolean loaded, int episodeCount, int autoDownload, int addLocation) {
         this.id = id;
@@ -39,5 +40,13 @@ public class Playlist {
 
     public int getAddLocation() {
         return addLocation;
+    }
+
+    public boolean hasSpeedTiers() {
+        return hasSpeedTiers;
+    }
+
+    public void setHasSpeedTiers(boolean hasSpeedTiers) {
+        this.hasSpeedTiers = hasSpeedTiers;
     }
 }

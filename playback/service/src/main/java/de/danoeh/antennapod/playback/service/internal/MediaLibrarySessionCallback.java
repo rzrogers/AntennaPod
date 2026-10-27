@@ -149,13 +149,17 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
     private ImmutableList<CommandButton> buildCustomLayout(MediaSession session) {
         ImmutableList.Builder<CommandButton> buttons = ImmutableList.builder();
 
-        buttons.add(new CommandButton.Builder(CommandButton.ICON_REWIND)
+        buttons.add(new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setSlots(CommandButton.SLOT_BACK)
                 .setSessionCommand(SESSION_COMMAND_REWIND)
+                .setCustomIconResId(JumpButtonIcon.back(UserPreferences.getRewindSecs()))
                 .setDisplayName(context.getString(R.string.rewind_label))
                 .build());
 
-        buttons.add(new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+        buttons.add(new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setSlots(CommandButton.SLOT_FORWARD)
                 .setSessionCommand(SESSION_COMMAND_FAST_FORWARD)
+                .setCustomIconResId(JumpButtonIcon.forward(UserPreferences.getFastForwardSecs()))
                 .setDisplayName(context.getString(R.string.fast_forward_label))
                 .build());
 

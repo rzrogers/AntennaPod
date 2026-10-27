@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.playback.service;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.audiofx.LoudnessEnhancer;
 import android.os.Bundle;
 import android.util.Log;
@@ -58,6 +59,7 @@ import de.danoeh.antennapod.playback.service.internal.ClockSleepTimer;
 import de.danoeh.antennapod.playback.service.internal.EpisodeSleepTimer;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.database.PlaylistDB;
 import de.danoeh.antennapod.storage.database.DelayedDeletion;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
@@ -103,6 +105,11 @@ public class Media3PlaybackService extends MediaLibraryService {
     @Nullable
     private LoudnessEnhancer loudnessEnhancer = null;
     private float volumeAdaptionFactor = 1.0f;
+    private final SharedPreferences.OnSharedPreferenceChangeListener jumpSecsListener = (prefs, key) -> {
+        if (UserPreferences.isJumpSecsKey(key) && this.mediaSession != null) {
+            this.sessionCallback.refreshNotification(this.mediaSession);
+        }
+    };
 
     @UnstableApi
     @Override
@@ -259,6 +266,7 @@ public class Media3PlaybackService extends MediaLibraryService {
         mediaSession = new MediaLibraryService.MediaLibrarySession.Builder(this, player, sessionCallback)
                 .setSessionActivity(new MainActivityStarter(this).withOpenPlayer().getPendingIntent())
                 .build();
+        UserPreferences.registerListener(jumpSecsListener);
         if (isCasting()) {
             keepServiceRunningWhileCasting();
             loadCurrentMediaWhileCasting();
@@ -480,6 +488,7 @@ public class Media3PlaybackService extends MediaLibraryService {
     @Override
     public void onDestroy() {
         PlaybackService.isRunning = false;
+        UserPreferences.unregisterListener(jumpSecsListener);
         cancelPositionObserver();
         if (sleepTimer != null) {
             sleepTimer.stop();
@@ -573,6 +582,9 @@ public class Media3PlaybackService extends MediaLibraryService {
                         updateDatabaseAfterPlayback(DBReader.getFeedMedia(previousMediaId), -1, false, false, true);
                     }
                     FeedMedia media = DBReader.getFeedMedia(mediaId);
+                    if (previousMediaId != mediaId) {
+                        PlaylistDB.updateSpeedDecision(media);
+                    }
                     ChapterUtils.loadChapters(media, this, false);
                     return media;
                 })
@@ -854,6 +866,7 @@ public class Media3PlaybackService extends MediaLibraryService {
             boolean hasNext = nextItem != null && nextItem.getMedia() != null;
             updateDatabaseAfterPlayback(media, startPosition, ended, wasSkipped, hasNext);
             if (hasNext) {
+                PlaylistDB.updateSpeedDecision(nextItem.getMedia());
                 return new Pair<>(nextItem.getMedia(),
                         MediaItemAdapter.fromPlayable(Media3PlaybackService.this, nextItem.getMedia(), false));
             }
