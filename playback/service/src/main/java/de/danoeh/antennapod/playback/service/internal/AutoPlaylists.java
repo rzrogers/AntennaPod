@@ -176,6 +176,17 @@ final class AutoPlaylists {
                 match = playlist;
             }
         }
+        if (match == null) {
+            int longest = 0;
+            for (Playlist playlist : PlaylistDB.getPlaylists()) {
+                String title = playlist.getTitle().trim().toLowerCase(Locale.getDefault());
+                if (!title.isEmpty() && title.length() > longest && wanted.contains(title)
+                        && hasPlayableItems(playlist.getId())) {
+                    match = playlist;
+                    longest = title.length();
+                }
+            }
+        }
         return match == null ? null : loadPlaylist(player, match.getId());
     }
 

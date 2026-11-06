@@ -59,6 +59,8 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
     private static final ImmutableList<String> BROWSABLE_MEDIA_IDS = ImmutableList.of(
             MEDIA_ID_ROOT, MEDIA_ID_QUEUE, MEDIA_ID_DOWNLOADS, MEDIA_ID_EPISODES,
             MEDIA_ID_SUBSCRIPTIONS, MEDIA_ID_CONTINUE_LISTENING, AutoPlaylists.MEDIA_ID_PLAYLISTS);
+    public static final ImmutableList<String> AUTO_REFRESH_MEDIA_IDS = ImmutableList.of(
+            AutoPlaylists.MEDIA_ID_PLAYLISTS, MEDIA_ID_QUEUE);
 
     protected static final SessionCommand SESSION_COMMAND_REWIND
             = new SessionCommand("rewind", Bundle.EMPTY);

@@ -29,6 +29,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.event.PlaylistEvent;
+import de.danoeh.antennapod.event.QueueEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlayerErrorEvent;
 import de.danoeh.antennapod.event.StreamingConfirmationEvent;
@@ -599,6 +601,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                                 DBWriter.addQueueItem(this, media.getItem());
                             }
                             switchToPlayable(media);
+                            notifyAutoListsChanged();
                         },
                                 error -> Log.e(TAG, "Failed to load current media", error));
 
@@ -970,6 +973,26 @@ public class Media3PlaybackService extends MediaLibraryService {
                     .setVolumeAdaptionSetting(event.getVolumeAdaptionSetting());
             volumeAdaptionFactor = event.getVolumeAdaptionSetting().getAdaptionFactor();
             applyVolumeAdaption(1.0f);
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    @SuppressWarnings("unused")
+    public void onQueueChanged(QueueEvent event) {
+        notifyAutoListsChanged();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    @SuppressWarnings("unused")
+    public void onPlaylistChanged(PlaylistEvent event) {
+        notifyAutoListsChanged();
+    }
+
+    private void notifyAutoListsChanged() {
+        if (mediaSession != null) {
+            for (String parentId : MediaLibrarySessionCallback.AUTO_REFRESH_MEDIA_IDS) {
+                mediaSession.notifyChildrenChanged(parentId, Integer.MAX_VALUE, null);
+            }
         }
     }
 
