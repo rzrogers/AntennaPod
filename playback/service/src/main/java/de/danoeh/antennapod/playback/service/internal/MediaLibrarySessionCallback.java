@@ -58,7 +58,7 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
     private static final int CONTINUE_LISTENING_NUM_EPISODES = 8;
     private static final ImmutableList<String> BROWSABLE_MEDIA_IDS = ImmutableList.of(
             MEDIA_ID_ROOT, MEDIA_ID_QUEUE, MEDIA_ID_DOWNLOADS, MEDIA_ID_EPISODES,
-            MEDIA_ID_SUBSCRIPTIONS, MEDIA_ID_CONTINUE_LISTENING);
+            MEDIA_ID_SUBSCRIPTIONS, MEDIA_ID_CONTINUE_LISTENING, AutoPlaylists.MEDIA_ID_PLAYLISTS);
 
     protected static final SessionCommand SESSION_COMMAND_REWIND
             = new SessionCommand("rewind", Bundle.EMPTY);
@@ -260,6 +260,9 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
             return Futures.immediateFuture(new MediaSession.MediaItemsWithStartPosition(
                     mediaItems, index, startPositionMs));
         }
+        if (AutoPlaylists.isPlaylistId(mediaItems.get(index).mediaId)) {
+            return AutoPlaylists.play(context, mediaSession, mediaItems.get(index).mediaId);
+        }
         String searchQuery = mediaItems.get(index).requestMetadata.searchQuery;
         if (searchQuery != null) {
             if ("".equals(searchQuery)) {
@@ -267,6 +270,10 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
             }
             SettableFuture<MediaSession.MediaItemsWithStartPosition> future = SettableFuture.create();
             Maybe.fromCallable(() -> {
+                FeedMedia playlistMedia = AutoPlaylists.playByName(mediaSession.getPlayer(), searchQuery);
+                if (playlistMedia != null) {
+                    return playlistMedia;
+                }
                 List<FeedItem> results = DBReader.searchFeedItems(0, searchQuery, FeedItemFilter.unfiltered());
                 for (FeedItem result : results) {
                     if (result.getMedia() != null) {
@@ -440,9 +447,10 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
         switch (parentId) {
             case MEDIA_ID_ROOT:
                 Single.fromCallable(() -> ImmutableList.of(
-                                createBrowsableMediaItem(MEDIA_ID_CONTINUE_LISTENING),
+                                createBrowsableMediaItem(AutoPlaylists.MEDIA_ID_PLAYLISTS),
                                 createBrowsableMediaItem(MEDIA_ID_QUEUE),
                                 createBrowsableMediaItem(MEDIA_ID_DOWNLOADS),
+                                createBrowsableMediaItem(MEDIA_ID_CONTINUE_LISTENING),
                                 createBrowsableMediaItem(MEDIA_ID_EPISODES),
                                 createBrowsableMediaItem(MEDIA_ID_SUBSCRIPTIONS)))
                         .subscribeOn(Schedulers.io())
@@ -463,6 +471,15 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
                                     future.set(LibraryResult.ofItemList(builder.build(), params));
                                 },
                                 future::setException);
+                return future;
+            case AutoPlaylists.MEDIA_ID_PLAYLISTS:
+                Single.fromCallable(() -> AutoPlaylists.getChildren(context))
+                        .subscribeOn(Schedulers.io())
+                        .subscribe(items -> future.set(LibraryResult.ofItemList(items, params)),
+                                error -> {
+                                    Log.e(TAG, "Failed to load playlists", error);
+                                    future.set(LibraryResult.ofItemList(ImmutableList.of(), params));
+                                });
                 return future;
             case MEDIA_ID_CONTINUE_LISTENING:
                 Single.fromCallable(
@@ -495,8 +512,8 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
                     };
                 })
                         .subscribeOn(Schedulers.io())
-                        .subscribe(items -> future.set(LibraryResult.ofItemList(
-                                        MediaItemAdapter.fromItemList(context, items), params)),
+                        .subscribe(items -> future.set(LibraryResult.ofItemList(AutoPlaylists.withQueueHeading(
+                                        parentId, MediaItemAdapter.fromItemList(context, items)), params)),
                                 future::setException);
                 return future;
         }
@@ -588,6 +605,8 @@ public class MediaLibrarySessionCallback implements MediaLibraryService.MediaLib
             case MEDIA_ID_SUBSCRIPTIONS:
                 return MediaItemAdapter.from(context, MEDIA_ID_SUBSCRIPTIONS,
                         context.getString(R.string.subscriptions_label), R.drawable.ic_subscriptions_black, null);
+            case AutoPlaylists.MEDIA_ID_PLAYLISTS:
+                return AutoPlaylists.createTab(context);
             case MEDIA_ID_CONTINUE_LISTENING:
                 return MediaItemAdapter.from(context, MEDIA_ID_CONTINUE_LISTENING,
                         context.getString(R.string.current_playing_episode), R.drawable.ic_play_48dp_black, null);

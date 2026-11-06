@@ -103,6 +103,9 @@
     <string name="playlist_speed_picker_message">Your own presets from the normal speed button. Tap one, or drag the slider for any speed from 0.5 to 4.</string>
     <string name="playlist_speed_info">%1$s×\u00A0(over\u00A0%2$d\u00A0h) · %3$s</string>
     <string name="playlist_speed_on_label">Speed when long is on</string>
+    <string name="playlist_auto_no_episodes">No episodes</string>
+    <string name="playlist_auto_playing_in_queue">Playing in queue</string>
+    <string name="playlist_auto_speed">%1$s×\u00A0(over\u00A0%2$d\u00A0h)</string>
     <string name="playback_speed_button_label">Playback speed %1$s</string>
     <string name="settings_label">Settings</string>
     <string name="downloads_label">Downloads</string>
