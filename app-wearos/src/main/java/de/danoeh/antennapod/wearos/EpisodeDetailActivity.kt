@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,11 +44,13 @@ import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.model.feed.FeedItem
+import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.ui.common.Converter
 import de.danoeh.antennapod.ui.common.DateFormatter
 import de.danoeh.antennapod.ui.common.R as CommonR
-import de.danoeh.antennapod.ui.notifications.R as NotificationsR
 import de.danoeh.antennapod.wearos.composable.ListItem
+import de.danoeh.antennapod.wearos.sync.PlusWearRepository
+import de.danoeh.antennapod.wearos.sync.WearMessageSender
 
 class EpisodeDetailActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +94,9 @@ fun EpisodeDetailScreen(
     val item = uiState.item
     val scrollState = rememberScalingLazyListState()
     var titleExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val jumpSeconds by PlusWearRepository.jumpSeconds.collectAsState()
+    LaunchedEffect(Unit) { WearMessageSender.send(context, PlusWear.JUMP_SECONDS) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ScalingLazyColumn(
@@ -172,9 +178,9 @@ fun EpisodeDetailScreen(
                     ) {
                         FilledTonalIconButton(onClick = onSkipBackward, modifier = Modifier.size(48.dp)) {
                             Icon(
-                                painter = painterResource(NotificationsR.drawable.ic_notification_fast_rewind),
+                                painter = painterResource(PlusJumpIcons.back(jumpSeconds[0])),
                                 contentDescription = stringResource(CommonR.string.rewind_label),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                         val playIcon = if (uiState.isCurrentlyPlaying) {
@@ -199,9 +205,9 @@ fun EpisodeDetailScreen(
                         }
                         FilledTonalIconButton(onClick = onSkipForward, modifier = Modifier.size(48.dp)) {
                             Icon(
-                                painter = painterResource(NotificationsR.drawable.ic_notification_fast_forward),
+                                painter = painterResource(PlusJumpIcons.forward(jumpSeconds[1])),
                                 contentDescription = stringResource(CommonR.string.fast_forward_label),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }

@@ -26,6 +26,7 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.Playlist;
 import de.danoeh.antennapod.playback.service.PlaybackController;
+import de.danoeh.antennapod.playback.service.PlaybackServiceStarter;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.PlaylistDB;
@@ -44,18 +45,7 @@ public final class PlaylistPlayer {
 
     public static void play(Context context, long playlistId) {
         String noEpisodesMessage = context.getString(R.string.playlist_no_playable_episodes);
-        Observable.fromCallable(() -> {
-            PlaylistDB.playPlaylist(playlistId).get();
-            Playlist loadedPlaylist = PlaylistDB.getLoadedPlaylist();
-            List<FeedItem> queue = DBReader.getQueue();
-            if (loadedPlaylist == null || loadedPlaylist.getId() != playlistId) {
-                return Collections.<FeedItem>emptyList();
-            }
-            if (!queue.isEmpty()) {
-                PlaylistDB.updateSpeedDecision(queue.get(0).getMedia());
-            }
-            return queue;
-        })
+        Observable.fromCallable(() -> loadQueue(playlistId))
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(queue -> {
@@ -66,6 +56,34 @@ public final class PlaylistPlayer {
                     applySpeedIfCurrent(context, queue.get(0));
                     startPlayback(context, queue.get(0));
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    public static void playInBackground(Context context, long playlistId) {
+        Observable.fromCallable(() -> loadQueue(playlistId))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(queue -> {
+                    if (queue.isEmpty() || queue.get(0).getMedia() == null) {
+                        return;
+                    }
+                    applySpeedIfCurrent(context, queue.get(0));
+                    new PlaybackServiceStarter(context, queue.get(0).getMedia())
+                            .callEvenIfRunning(true)
+                            .start();
+                }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private static List<FeedItem> loadQueue(long playlistId) throws Exception {
+        PlaylistDB.playPlaylist(playlistId).get();
+        Playlist loadedPlaylist = PlaylistDB.getLoadedPlaylist();
+        List<FeedItem> queue = DBReader.getQueue();
+        if (loadedPlaylist == null || loadedPlaylist.getId() != playlistId) {
+            return Collections.emptyList();
+        }
+        if (!queue.isEmpty()) {
+            PlaylistDB.updateSpeedDecision(queue.get(0).getMedia());
+        }
+        return queue;
     }
 
     private static void applySpeedIfCurrent(Context context, FeedItem item) {

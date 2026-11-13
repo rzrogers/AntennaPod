@@ -40,7 +40,7 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          ./gradlew :app:assemblePlayRelease \
+          ./gradlew :app:assemblePlayRelease :app-wearos:assemblePlayRelease \
             -PreleaseStoreFile="$RUNNER_TEMP/antennapod-plus.jks" \
             -PreleaseStorePassword="$KEYSTORE_PASSWORD" \
             -PreleaseKeyAlias=antennapodplus \
@@ -53,10 +53,13 @@ jobs:
           APK=$(ls app/build/outputs/apk/play/release/*.apk | head -n 1)
           NAME="AntennaPod-plus-build-${{ github.run_number }}.apk"
           cp "$APK" "$NAME"
-          gh release create "build-${{ github.run_number }}" "$NAME" \
+          WATCH_APK=$(ls app-wearos/build/outputs/apk/play/release/*.apk | head -n 1)
+          WATCH_NAME="AntennaPod-plus-watch-build-${{ github.run_number }}.apk"
+          cp "$WATCH_APK" "$WATCH_NAME"
+          gh release create "build-${{ github.run_number }}" "$NAME" "$WATCH_NAME" \
             --target "${{ github.sha }}" \
             --title "AntennaPod+ build ${{ github.run_number }}" \
-            --notes "Built from commit ${{ github.sha }} on the playlists branch. Export your database in AntennaPod+ before installing."
+            --notes "Built from commit ${{ github.sha }} on the playlists branch. Export your database in AntennaPod+ before installing. The watch file is installed onto the watch separately."
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/antennapod-plus.jks"

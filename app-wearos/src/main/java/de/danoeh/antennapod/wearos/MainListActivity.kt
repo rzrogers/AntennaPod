@@ -27,6 +27,7 @@ import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.model.feed.FeedItem
+import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
 import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.ListItem
@@ -50,6 +51,9 @@ class MainListActivity : ComponentActivity() {
                     onOpenFeedList = {
                         startActivity(Intent(this, FeedListActivity::class.java))
                     },
+                    onOpenPlaylists = {
+                        startActivity(Intent(this, PlaylistListActivity::class.java))
+                    },
                     onOpenEpisodeList = { path ->
                         val intent = Intent(this, EpisodeListActivity::class.java).apply {
                             putExtra(EpisodeListActivity.EXTRA_PATH, path)
@@ -67,6 +71,7 @@ fun MainListScreen(
     uiState: MainUiState,
     onOpenEpisodeDetail: (FeedItem) -> Unit,
     onOpenFeedList: () -> Unit,
+    onOpenPlaylists: () -> Unit,
     onOpenEpisodeList: (String) -> Unit
 ) {
     val scrollState = rememberScalingLazyListState()
@@ -74,6 +79,7 @@ fun MainListScreen(
 
     val menuItems = remember {
         listOf(
+            PlusWear.PLAYLISTS,
             WearDataPaths.QUEUE,
             WearDataPaths.DOWNLOADS,
             WearDataPaths.EPISODES,
@@ -122,7 +128,9 @@ fun MainListScreen(
                     text = stringResource(NavigationNames.getTitleResForPath(path)),
                     iconRes = NavigationNames.getIconResForPath(path),
                     onClick = {
-                        if (path == WearDataPaths.SUBSCRIPTIONS) {
+                        if (path == PlusWear.PLAYLISTS) {
+                            onOpenPlaylists()
+                        } else if (path == WearDataPaths.SUBSCRIPTIONS) {
                             onOpenFeedList()
                         } else {
                             onOpenEpisodeList(path)

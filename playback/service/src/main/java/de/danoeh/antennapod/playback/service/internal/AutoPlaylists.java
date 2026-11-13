@@ -36,11 +36,12 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-final class AutoPlaylists {
+public final class AutoPlaylists {
     private static final String TAG = "AutoPlaylists";
     static final String MEDIA_ID_PLAYLISTS = "plus_playlists";
     private static final String MEDIA_ID_PLAYLIST_PREFIX = "PlusPlaylist:";
@@ -57,31 +58,58 @@ final class AutoPlaylists {
                 context.getString(R.string.playlists_label), R.drawable.ic_playlists_black, null);
     }
 
+    private static int rowIconRes() {
+        return R.drawable.ic_playlists_auto;
+    }
+
     @WorkerThread
     static ImmutableList<MediaItem> getChildren(Context context) {
         Uri iconUri = new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
-                .authority(context.getResources().getResourcePackageName(R.drawable.ic_playlists_black))
-                .appendPath(context.getResources().getResourceTypeName(R.drawable.ic_playlists_black))
-                .appendPath(context.getResources().getResourceEntryName(R.drawable.ic_playlists_black))
+                .authority(context.getResources().getResourcePackageName(rowIconRes()))
+                .appendPath(context.getResources().getResourceTypeName(rowIconRes()))
+                .appendPath(context.getResources().getResourceEntryName(rowIconRes()))
                 .build();
         ImmutableList.Builder<MediaItem> builder = ImmutableList.builder();
-        for (Playlist playlist : PlaylistDB.getPlaylists()) {
-            boolean playable = hasPlayableItems(playlist.getId());
+        for (Row row : describePlaylists(context)) {
             MediaMetadata metadata = new MediaMetadata.Builder()
-                    .setTitle(playlist.getTitle())
-                    .setSubtitle(subtitle(context, playlist, playable))
+                    .setTitle(row.title)
+                    .setSubtitle(row.subtitle)
                     .setArtworkUri(iconUri)
-                    .setIsPlayable(playable)
+                    .setIsPlayable(row.playable)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
                     .build();
             builder.add(new MediaItem.Builder()
-                    .setMediaId(MEDIA_ID_PLAYLIST_PREFIX + playlist.getId())
+                    .setMediaId(MEDIA_ID_PLAYLIST_PREFIX + row.id)
                     .setMediaMetadata(metadata)
                     .build());
         }
         return builder.build();
+    }
+
+    public static final class Row {
+        public final long id;
+        public final String title;
+        public final String subtitle;
+        public final boolean playable;
+
+        Row(long id, String title, String subtitle, boolean playable) {
+            this.id = id;
+            this.title = title;
+            this.subtitle = subtitle;
+            this.playable = playable;
+        }
+    }
+
+    @WorkerThread
+    public static List<Row> describePlaylists(Context context) {
+        List<Row> rows = new ArrayList<>();
+        for (Playlist playlist : PlaylistDB.getPlaylists()) {
+            boolean playable = hasPlayableItems(playlist.getId());
+            rows.add(new Row(playlist.getId(), playlist.getTitle(), subtitle(context, playlist, playable), playable));
+        }
+        return rows;
     }
 
     private static String subtitle(Context context, Playlist playlist, boolean playable) {

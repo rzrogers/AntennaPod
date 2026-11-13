@@ -9,6 +9,9 @@ import de.danoeh.antennapod.net.sync.wearinterface.WearSerializer
 class WearDataListenerService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
         val path = event.path
+        if (PlusWearRepository.handle(this, path, event.data)) {
+            return
+        }
         when (path) {
             WearDataPaths.SUBSCRIPTIONS -> {
                 val feeds = WearSerializer.feedsFromBytes(event.data)

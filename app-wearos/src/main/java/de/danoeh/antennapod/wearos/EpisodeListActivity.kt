@@ -53,6 +53,7 @@ fun EpisodeListScreen(uiState: EpisodeListUiState, onOpenEpisodeDetail: (FeedIte
 
     ListScaffold(
         titleRes = uiState.titleRes,
+        title = uiState.title,
         scrollState = scrollState,
         isPhoneSupported = uiState.isPhoneSupported,
         isTimedOut = uiState.isTimedOut,

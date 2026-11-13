@@ -14,7 +14,7 @@ android {
         applicationId "de.danoeh.antennapod"
         minSdk 25
         targetSdk 36
-        versionCode 1
+        versionCode Integer.parseInt((project.findProperty("plusBuildNumber") ?: "1").toString())
         versionName "1.0"
     }
 
@@ -34,6 +34,8 @@ android {
             applicationIdSuffix ".debug"
         }
         release {
+            applicationIdSuffix ".plus"
+            versionNameSuffix "-plus" + (project.findProperty("plusBuildNumber") ?: "")
             minifyEnabled true
             shrinkResources true
             signingConfig signingConfigs.releaseConfig
@@ -75,6 +77,9 @@ dependencies {
     implementation libs.kotlinx.coroutines.play.services
     implementation libs.androidx.activity.compose
     implementation libs.androidx.appcompat
+    implementation libs.androidx.wear.tiles
+    implementation libs.androidx.wear.protolayout
+    implementation libs.guava
 
     testImplementation libs.junit
 }

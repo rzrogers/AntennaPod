@@ -7,7 +7,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import de.danoeh.antennapod.model.feed.FeedItem
+import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.net.sync.wearinterface.WearConnectionUtils
+import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
+import de.danoeh.antennapod.wearos.sync.PlusWearRepository
 import de.danoeh.antennapod.wearos.sync.WearDataRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
 import kotlin.time.Duration.Companion.seconds
@@ -24,7 +27,8 @@ data class EpisodeListUiState(
     val episodes: List<FeedItem>? = null,
     val isPhoneSupported: Boolean = true,
     val isTimedOut: Boolean = false,
-    val titleRes: Int = 0
+    val titleRes: Int = 0,
+    val title: String? = null
 )
 
 class EpisodeListViewModel(application: Application, private val path: String) : AndroidViewModel(application) {
@@ -32,6 +36,16 @@ class EpisodeListViewModel(application: Application, private val path: String) :
     val uiState: StateFlow<EpisodeListUiState> = _uiState
 
     init {
+        if (path == WearDataPaths.QUEUE) {
+            viewModelScope.launch {
+                PlusWearRepository.loadedPlaylistTitle.collect { title ->
+                    _uiState.update { it.copy(title = title?.ifEmpty { null }) }
+                }
+            }
+            viewModelScope.launch(Dispatchers.IO) {
+                WearMessageSender.send(getApplication(), PlusWear.LOADED_PLAYLIST)
+            }
+        }
         viewModelScope.launch {
             WearDataRepository.episodesByPath.collect { map ->
                 _uiState.update { it.copy(episodes = map[path]) }

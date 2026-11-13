@@ -68,6 +68,8 @@ eventbus = { module = "org.greenrobot:eventbus", version = "3.3.1" }
 rxandroid = { module = "io.reactivex.rxjava3:rxandroid", version = "3.0.2" }
 rxjava = { module = "io.reactivex.rxjava3:rxjava", version = "3.1.5" }
 guava = { module = "com.google.guava:guava", version = "31.0.1-android" }
+androidx-wear-tiles = { module = "androidx.wear.tiles:tiles", version = "1.4.1" }
+androidx-wear-protolayout = { module = "androidx.wear.protolayout:protolayout", version = "1.2.1" }
 conscrypt-android = { module = "org.conscrypt:conscrypt-android", version = "2.5.3" }
 preferencesearch = { module = "com.bytehamster:lib.preferencesearch", version = "2.7.3" }
 balloon = { module = "com.github.skydoves:balloon", version = "1.5.3" }

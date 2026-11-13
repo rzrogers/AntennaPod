@@ -44,6 +44,32 @@
             android:exported="false"
             android:taskAffinity=".wearos" />
 
+        <activity
+            android:name="de.danoeh.antennapod.wearos.PlaylistListActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.TileActionActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=".wearos.tile"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name="de.danoeh.antennapod.wearos.PlaylistTileService"
+            android:exported="true"
+            android:label="@string/playlists_label"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@mipmap/ic_launcher" />
+        </service>
+
         <service
             android:name="de.danoeh.antennapod.wearos.sync.WearDataListenerService"
             android:exported="true">

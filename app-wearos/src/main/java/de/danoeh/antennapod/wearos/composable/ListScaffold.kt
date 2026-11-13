@@ -23,6 +23,7 @@ import de.danoeh.antennapod.ui.common.R as CommonR
 @Composable
 fun ListScaffold(
     titleRes: Int,
+    title: String? = null,
     scrollState: ScalingLazyListState,
     isPhoneSupported: Boolean,
     isTimedOut: Boolean,
@@ -37,7 +38,7 @@ fun ListScaffold(
         ) {
             item {
                 ListHeader(modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(titleRes))
+                    Text(title ?: stringResource(titleRes))
                 }
             }
 
