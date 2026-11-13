@@ -3,8 +3,11 @@ package de.danoeh.antennapod.wearos
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,13 +70,14 @@ import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
 import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.ListItem
-import de.danoeh.antennapod.wearos.composable.MarqueeText
+import de.danoeh.antennapod.wearos.composable.EdgeMarqueeText
 import de.danoeh.antennapod.wearos.composable.PlusAccent
 import de.danoeh.antennapod.wearos.composable.PollWhileStarted
 import de.danoeh.antennapod.wearos.composable.RingPlayButton
@@ -79,6 +85,7 @@ import de.danoeh.antennapod.wearos.composable.RoundButton
 import de.danoeh.antennapod.wearos.composable.RoundIconButton
 import de.danoeh.antennapod.wearos.composable.SectionLabel
 import de.danoeh.antennapod.wearos.composable.formatSpeed
+import de.danoeh.antennapod.wearos.composable.isRoundScreen
 import de.danoeh.antennapod.wearos.composable.rememberClockText
 import de.danoeh.antennapod.wearos.sync.PlusPlayerRepository
 import de.danoeh.antennapod.wearos.sync.PlusWearRepository
@@ -93,7 +100,11 @@ class PlayerActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = dynamicColorScheme(this) ?: MaterialTheme.colorScheme) {
                 PlayerScreen(
-                    onOpen = { target -> startActivity(Intent(this, target)) }
+                    onOpen = { target -> startActivity(Intent(this, target)) },
+                    onSearch = { query ->
+                        startActivity(Intent(this, SearchActivity::class.java)
+                            .putExtra(SearchActivity.EXTRA_QUERY, query))
+                    }
                 )
             }
         }
@@ -105,10 +116,18 @@ private const val PAGE_PLAYER = 1
 private const val PAGE_LISTS = 2
 private const val VOLUME_STEP_PIXELS = 60f
 private const val VOLUME_SHOW_MILLIS = 1500L
+private const val VOLUME_ARC_SWEEP = 50f
+private const val VOLUME_ARC_GAP = 4f
 
 @Composable
-fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
+fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     val context = LocalContext.current
+    val view = LocalView.current
+    val round = isRoundScreen()
+    val searchLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        searchQueryFrom(result.data)?.let(onSearch)
+    }
+    var lastVolumeLevel by remember { mutableIntStateOf(-1) }
     val scope = rememberCoroutineScope()
     val state by PlusPlayerRepository.player.collectAsState()
     val art by PlusPlayerRepository.art.collectAsState()
@@ -140,7 +159,12 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
         }
     }
     LaunchedEffect(volume?.stamp) {
-        val stamp = volume?.stamp ?: return@LaunchedEffect
+        val level = volume ?: return@LaunchedEffect
+        if (level.max > 0 && level.level >= level.max && lastVolumeLevel in 0 until level.max) {
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        }
+        lastVolumeLevel = level.level
+        val stamp = level.stamp
         if (SystemClock.elapsedRealtime() - stamp < VOLUME_SHOW_MILLIS) {
             showVolume = true
             delay(VOLUME_SHOW_MILLIS)
@@ -177,6 +201,12 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
                     while (abs(rotaryPixels) >= VOLUME_STEP_PIXELS) {
                         val up = rotaryPixels > 0
                         rotaryPixels -= if (up) VOLUME_STEP_PIXELS else -VOLUME_STEP_PIXELS
+                        val known = PlusPlayerRepository.volume.value
+                        if (up && known != null && known.max > 0 && known.level >= known.max) {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        } else {
+                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        }
                         scope.launch {
                             WearMessageSender.send(context, if (up) PlusWear.VOLUME_UP else PlusWear.VOLUME_DOWN)
                         }
@@ -193,6 +223,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
             when (page) {
                 PAGE_SIMPLE -> SimplePage(
                     unit = unit,
+                    round = round,
                     textScale = textScale,
                     title = title,
                     feedTitle = feedTitle,
@@ -203,6 +234,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
                 )
                 PAGE_PLAYER -> MainPage(
                     unit = unit,
+                    round = round,
                     textScale = textScale,
                     title = title,
                     feedTitle = feedTitle,
@@ -222,7 +254,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
                 else -> ListsPage(
                     listState = listState,
                     playlists = playlists,
-                    onSearch = { onOpen(SearchActivity::class.java) },
+                    onSearch = { searchLauncher.launch(searchInputIntent(context)) },
                     onLibrary = { onOpen(LibraryActivity::class.java) },
                     onPlaylist = { row ->
                         scope.launch {
@@ -235,10 +267,14 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit) {
                 )
             }
         }
-        PageDots(pagerState = pagerState, modifier = Modifier.align(Alignment.CenterEnd))
+        if (pagerState.currentPage == PAGE_LISTS && !pagerState.isScrollInProgress) {
+            ScrollIndicator(state = listState, modifier = Modifier.align(Alignment.CenterEnd))
+        } else {
+            PageDots(pagerState = pagerState, modifier = Modifier.align(Alignment.CenterEnd))
+        }
         val level = volume
         if (showVolume && level != null && level.max > 0) {
-            VolumeArc(fraction = level.level.toFloat() / level.max.toFloat())
+            VolumeIndicator(fraction = level.level.toFloat() / level.max.toFloat(), round = round)
         }
     }
 }
@@ -261,6 +297,7 @@ private fun ArtBackground(bitmap: ImageBitmap?, dim: Float) {
 @Composable
 private fun SimplePage(
     unit: Dp,
+    round: Boolean,
     textScale: Float,
     title: String,
     feedTitle: String,
@@ -284,17 +321,17 @@ private fun SimplePage(
             Spacer(modifier = Modifier.height(unit * 8))
             RingPlayButton(size = unit * 72, progress = progress, playing = playing, onClick = onPlayPause)
             Spacer(modifier = Modifier.height(unit * 8))
-            MarqueeText(
+            EdgeMarqueeText(
                 text = title,
                 fontSize = 16 * textScale,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = unit * 24)
+                fitPadding = if (round) unit * 24 else unit * 8,
+                fontWeight = FontWeight.Bold
             )
-            MarqueeText(
+            EdgeMarqueeText(
                 text = feedTitle,
                 fontSize = 13 * textScale,
-                color = PlusAccent,
-                modifier = Modifier.padding(horizontal = unit * 40)
+                fitPadding = if (round) unit * 40 else unit * 8,
+                color = PlusAccent
             )
         }
     }
@@ -303,6 +340,7 @@ private fun SimplePage(
 @Composable
 private fun MainPage(
     unit: Dp,
+    round: Boolean,
     textScale: Float,
     title: String,
     feedTitle: String,
@@ -331,17 +369,17 @@ private fun MainPage(
                 fontSize = (12 * textScale).sp,
                 fontWeight = FontWeight.Medium
             )
-            MarqueeText(
+            EdgeMarqueeText(
                 text = title,
                 fontSize = 14 * textScale,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = unit * 22)
+                fitPadding = if (round) unit * 22 else unit * 8,
+                fontWeight = FontWeight.SemiBold
             )
-            MarqueeText(
+            EdgeMarqueeText(
                 text = feedTitle,
                 fontSize = 12 * textScale,
-                color = PlusAccent,
-                modifier = Modifier.padding(horizontal = unit * 34)
+                fitPadding = if (round) unit * 24 else unit * 8,
+                color = PlusAccent
             )
             Spacer(modifier = Modifier.height(unit * 6))
             Row(
@@ -424,7 +462,7 @@ private fun ListsPage(
             ) {
                 FilledTonalButton(onClick = onSearch, modifier = Modifier.width(64.dp)) {
                     Icon(
-                        painter = painterResource(CommonR.drawable.ic_search),
+                        painter = painterResource(R.drawable.ic_plus_search),
                         contentDescription = stringResource(CommonR.string.search_label),
                         modifier = Modifier.size(22.dp)
                     )
@@ -484,31 +522,60 @@ private fun PageDots(pagerState: PagerState, modifier: Modifier) {
 }
 
 @Composable
-private fun VolumeArc(fraction: Float) {
+private fun VolumeIndicator(fraction: Float, round: Boolean) {
+    val filled = fraction.coerceIn(0f, 1f)
     Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
-        val stroke = 4.dp.toPx()
-        val arcSize = Size(size.width - stroke, size.height - stroke)
-        val topLeft = Offset(stroke / 2f, stroke / 2f)
-        drawArc(
-            color = Color.White.copy(alpha = 0.25f),
-            startAngle = 140f,
-            sweepAngle = 80f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = arcSize,
-            style = Stroke(width = stroke, cap = StrokeCap.Round)
-        )
-        val sweep = 80f * fraction.coerceIn(0f, 1f)
-        if (sweep > 0f) {
-            drawArc(
-                color = Color.White,
-                startAngle = 220f - sweep,
-                sweepAngle = sweep,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round)
+        val stroke = 6.dp.toPx()
+        if (round) {
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            val topLeft = Offset(stroke / 2f, stroke / 2f)
+            val bottom = 180f - VOLUME_ARC_SWEEP / 2f
+            val sweep = VOLUME_ARC_SWEEP * filled
+            val gap = if (sweep > 0f && sweep < VOLUME_ARC_SWEEP) VOLUME_ARC_GAP else 0f
+            if (sweep + gap < VOLUME_ARC_SWEEP) {
+                drawArc(
+                    color = Color.White.copy(alpha = 0.3f),
+                    startAngle = bottom + sweep + gap,
+                    sweepAngle = VOLUME_ARC_SWEEP - sweep - gap,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                )
+            }
+            if (sweep > 0f) {
+                drawArc(
+                    color = Color.White,
+                    startAngle = bottom,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                )
+            }
+        } else {
+            val length = size.height * 0.3f
+            val x = stroke / 2f
+            val top = (size.height - length) / 2f
+            val bottom = top + length
+            val fillTop = bottom - length * filled
+            drawLine(
+                color = Color.White.copy(alpha = 0.3f),
+                start = Offset(x, top),
+                end = Offset(x, bottom),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
             )
+            if (filled > 0f) {
+                drawLine(
+                    color = Color.White,
+                    start = Offset(x, bottom),
+                    end = Offset(x, fillTop),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
+                )
+            }
         }
     }
 }

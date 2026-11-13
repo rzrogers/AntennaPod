@@ -1,8 +1,10 @@
 package de.danoeh.antennapod.wearos
 
 import android.app.RemoteInput
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.inputmethod.EditorInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -44,11 +46,17 @@ import de.danoeh.antennapod.wearos.sync.WearMessageSender
 import kotlinx.coroutines.launch
 
 class SearchActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_QUERY = "query"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val initialQuery = intent.getStringExtra(EXTRA_QUERY)
         setContent {
             MaterialTheme(colorScheme = dynamicColorScheme(this) ?: MaterialTheme.colorScheme) {
                 SearchScreen(
+                    initialQuery = initialQuery,
                     onOpenFeed = { feedId ->
                         startActivity(Intent(this, EpisodeListActivity::class.java).apply {
                             putExtra(EpisodeListActivity.EXTRA_PATH, WearDataPaths.feedEpisodesPath(feedId))
@@ -66,36 +74,59 @@ class SearchActivity : ComponentActivity() {
 }
 
 private const val SEARCH_KEY = "query"
+private const val EXTRA_DISALLOW_EMOJI = "android.support.wearable.input.extra.DISALLOW_EMOJI"
+private const val EXTRA_INPUT_ACTION_TYPE = "android.support.wearable.input.extra.INPUT_ACTION_TYPE"
+
+fun searchInputIntent(context: Context): Intent {
+    val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
+    val extras = Bundle().apply {
+        putBoolean(EXTRA_DISALLOW_EMOJI, true)
+        putInt(EXTRA_INPUT_ACTION_TYPE, EditorInfo.IME_ACTION_SEARCH)
+    }
+    val remoteInput = RemoteInput.Builder(SEARCH_KEY)
+        .setLabel(context.getString(CommonR.string.plus_wear_search_prompt))
+        .addExtras(extras)
+        .build()
+    RemoteInputIntentHelper.putRemoteInputsExtra(intent, listOf(remoteInput))
+    return intent
+}
+
+fun searchQueryFrom(data: Intent?): String? {
+    if (data == null) {
+        return null
+    }
+    val text = RemoteInput.getResultsFromIntent(data)?.getCharSequence(SEARCH_KEY)?.toString()?.trim()
+    return if (text.isNullOrEmpty()) null else text
+}
 
 @Composable
-fun SearchScreen(onOpenFeed: (Long) -> Unit, onPlayed: () -> Unit) {
+fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val results by PlusPlayerRepository.search.collectAsState()
     var query by rememberSaveable { mutableStateOf<String?>(null) }
+    var started by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScalingLazyListState()
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val data = result.data ?: return@rememberLauncherForActivityResult
-        val text = RemoteInput.getResultsFromIntent(data)?.getCharSequence(SEARCH_KEY)?.toString()?.trim()
-        if (!text.isNullOrEmpty()) {
+        val text = searchQueryFrom(result.data)
+        if (text != null) {
             query = text
             PlusPlayerRepository.clearSearch()
             scope.launch { WearMessageSender.send(context, PlusWear.searchPath(text)) }
         }
     }
-    val askForQuery: () -> Unit = {
-        val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
-        val remoteInput = RemoteInput.Builder(SEARCH_KEY)
-            .setLabel(context.getString(CommonR.string.plus_wear_search_prompt))
-            .build()
-        RemoteInputIntentHelper.putRemoteInputsExtra(intent, listOf(remoteInput))
-        launcher.launch(intent)
-    }
+    val askForQuery: () -> Unit = { launcher.launch(searchInputIntent(context)) }
     LaunchedEffect(Unit) {
-        if (query == null) {
+        if (!started) {
+            started = true
             PlusPlayerRepository.clearSearch()
-            askForQuery()
+            if (initialQuery != null) {
+                query = initialQuery
+                WearMessageSender.send(context, PlusWear.searchPath(initialQuery))
+            } else {
+                askForQuery()
+            }
         }
     }
 
@@ -115,7 +146,7 @@ fun SearchScreen(onOpenFeed: (Long) -> Unit, onPlayed: () -> Unit) {
                     text = stringResource(
                         if (query == null) CommonR.string.search_label else CommonR.string.plus_wear_search_again
                     ),
-                    iconRes = CommonR.drawable.ic_search,
+                    iconRes = R.drawable.ic_plus_search,
                     onClick = askForQuery
                 )
             }

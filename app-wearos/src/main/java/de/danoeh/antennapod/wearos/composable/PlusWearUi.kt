@@ -10,7 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,10 +39,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -139,6 +145,43 @@ fun MarqueeText(
         maxLines = 1
     )
 }
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun EdgeMarqueeText(
+    text: String,
+    fontSize: Float,
+    fitPadding: Dp,
+    color: Color = Color.White,
+    fontWeight: FontWeight = FontWeight.Normal
+) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val style = TextStyle(fontSize = fontSize.sp, fontWeight = fontWeight)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val textWidth = remember(text, style) {
+            measurer.measure(text = text, style = style, maxLines = 1, softWrap = false).size.width
+        }
+        val fullWidthPx = with(density) { maxWidth.toPx() }
+        val fitWidthPx = with(density) { (maxWidth - fitPadding * 2).toPx() }
+        if (textWidth <= fitWidthPx) {
+            Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
+        } else {
+            val extra = with(density) { (fullWidthPx - textWidth).coerceAtLeast(0f).toDp() } + 1.dp
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .basicMarquee(initialDelayMillis = 1500, spacing = MarqueeSpacing(maxWidth / 4))
+            ) {
+                Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
+                Spacer(modifier = Modifier.width(extra))
+            }
+        }
+    }
+}
+
+@Composable
+fun isRoundScreen(): Boolean = LocalConfiguration.current.isScreenRound
 
 @Composable
 fun RingPlayButton(
