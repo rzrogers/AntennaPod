@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.wearos
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.FilledIconButton
@@ -45,12 +47,14 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.model.feed.FeedItem
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
+import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
 import de.danoeh.antennapod.ui.common.Converter
 import de.danoeh.antennapod.ui.common.DateFormatter
 import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.ListItem
 import de.danoeh.antennapod.wearos.sync.PlusWearRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
+import kotlinx.coroutines.launch
 
 class EpisodeDetailActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +71,12 @@ class EpisodeDetailActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState()
                 EpisodeDetailScreen(
                     uiState = uiState,
-                    onPlay = { viewModel.play() },
+                    onPlay = {
+                        lifecycleScope.launch {
+                            WearMessageSender.send(this@EpisodeDetailActivity, WearDataPaths.playPath(episode.id))
+                            startActivity(Intent(this@EpisodeDetailActivity, PlayerActivity::class.java))
+                        }
+                    },
                     onPause = { viewModel.pause() },
                     onSkipForward = { viewModel.skipForward() },
                     onSkipBackward = { viewModel.skipBackward() },

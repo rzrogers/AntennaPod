@@ -1148,4 +1148,32 @@
     <string name="wearos_play_on_phone" tools:ignore="UnusedResources">Play on phone</string>
     <string name="wearos_browse_phone" tools:ignore="UnusedResources">Browse phone</string>
     <string name="wearos_open_on_phone" tools:ignore="UnusedResources">Open on phone</string>
+    <string name="plus_wear_playing_on" tools:ignore="UnusedResources">Playing on</string>
+    <string name="plus_wear_phone" tools:ignore="UnusedResources">Phone</string>
+    <string name="plus_wear_phone_speaker" tools:ignore="UnusedResources">Phone speaker</string>
+    <string name="plus_wear_wired_headphones" tools:ignore="UnusedResources">Wired headphones</string>
+    <string name="plus_wear_bluetooth_device" tools:ignore="UnusedResources">Bluetooth device</string>
+    <string name="plus_wear_change_on_phone" tools:ignore="UnusedResources">Change on phone</string>
+    <string name="plus_wear_change_on_phone_summary" tools:ignore="UnusedResources">Opens the phone\'s output picker</string>
+    <string name="plus_wear_this_watch" tools:ignore="UnusedResources">This watch</string>
+    <string name="plus_wear_this_watch_summary" tools:ignore="UnusedResources">Coming with watch playback</string>
+    <string name="plus_wear_connect_device" tools:ignore="UnusedResources">Connect a device</string>
+    <string name="plus_wear_connect_device_summary" tools:ignore="UnusedResources">Coming with watch playback</string>
+    <string name="plus_wear_check_phone" tools:ignore="UnusedResources">Check your phone</string>
+    <string name="plus_wear_library" tools:ignore="UnusedResources">Library</string>
+    <string name="plus_wear_shows" tools:ignore="UnusedResources">Shows</string>
+    <string name="plus_wear_search_again" tools:ignore="UnusedResources">Search again</string>
+    <string name="plus_wear_search_prompt" tools:ignore="UnusedResources">Episodes and shows</string>
+    <string name="plus_wear_speed" tools:ignore="UnusedResources">Speed</string>
+    <string name="plus_wear_slower" tools:ignore="UnusedResources">Slower</string>
+    <string name="plus_wear_faster" tools:ignore="UnusedResources">Faster</string>
+    <string name="plus_wear_sleep_off" tools:ignore="UnusedResources">Off</string>
+    <string name="plus_wear_end_of_episode" tools:ignore="UnusedResources">End of episode</string>
+    <string name="plus_wear_minutes" tools:ignore="UnusedResources">%1$d min</string>
+    <string name="plus_wear_hours_minutes" tools:ignore="UnusedResources">%1$d h %2$d min</string>
+    <string name="plus_wear_hours" tools:ignore="UnusedResources">%1$d h</string>
+    <string name="plus_wear_left" tools:ignore="UnusedResources">%1$s left</string>
+    <string name="plus_wear_sleep_ends_episode" tools:ignore="UnusedResources">Stops at the end of this episode</string>
+    <string name="plus_wear_sleep_stops_in" tools:ignore="UnusedResources">Stops in %1$s</string>
+    <string name="plus_wear_output" tools:ignore="UnusedResources">Output</string>
 </resources>

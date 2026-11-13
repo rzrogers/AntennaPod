@@ -70,7 +70,8 @@ class PlaylistTileService : TileService() {
             column.addContent(text(getString(CommonR.string.wearos_no_items), 13f, COLOR_SECONDARY))
             column.addContent(spacer(6f))
         }
-        for (row in rows.take(MAX_PLAYLISTS)) {
+        val ordered = rows.filter { it.recent >= 0 }.sortedBy { it.recent } + rows.filter { it.recent < 0 }
+        for (row in ordered.take(MAX_PLAYLISTS)) {
             column.addContent(chip(row))
             column.addContent(spacer(3f))
         }
@@ -180,7 +181,7 @@ class PlaylistTileService : TileService() {
                 .setAndroidActivity(
                     ActionBuilders.AndroidActivity.Builder()
                         .setPackageName(packageName)
-                        .setClassName(MainListActivity::class.java.name)
+                        .setClassName(PlayerActivity::class.java.name)
                         .build()
                 )
                 .build()
@@ -217,7 +218,7 @@ class PlaylistTileService : TileService() {
         private const val RESOURCES_VERSION = "1"
         private const val IMAGE_APP = "app"
         private const val IMAGE_PHONE = "phone"
-        private const val MAX_PLAYLISTS = 3
+        private const val MAX_PLAYLISTS = 2
         private const val CHIP_WIDTH = 150f
         private const val FRESHNESS_MILLIS = 15 * 60 * 1000L
         private const val REFRESH_MILLIS = 60 * 1000L

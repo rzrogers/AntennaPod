@@ -24,6 +24,9 @@ object PlusWearRepository {
         if (!PlusWear.isPlusPath(path)) {
             return false
         }
+        if (PlusPlayerRepository.handle(path, data)) {
+            return true
+        }
         when (path) {
             PlusWear.PLAYLISTS -> {
                 _playlists.value = PlusWear.playlistsFromBytes(data)

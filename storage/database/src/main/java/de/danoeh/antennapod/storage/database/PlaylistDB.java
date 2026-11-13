@@ -715,6 +715,7 @@ public final class PlaylistDB {
             SQLiteDatabase db = db();
             List<FeedItem> oldQueue = DBReader.getQueue();
             long previous = PlaylistTables.setLoaded(db, playlistId);
+            UserPreferences.notePlusPlaylistPlayed(playlistId);
             replaceQueue(oldQueue, items);
             if (previous != playlistId) {
                 PlaylistTables.postChanged(previous);

@@ -93,6 +93,7 @@ public abstract class UserPreferences {
     private static final String PREF_PLUS_PLAYLIST_SPEED = "prefPlusPlaylistSpeed";
     private static final String PREF_PLUS_PLAYLIST_SPEED_HOURS = "prefPlusPlaylistSpeedHours";
     private static final String PREF_PLUS_PLAYLIST_SPEED_PLAYLIST = "prefPlusPlaylistSpeedPlaylist";
+    private static final String PREF_PLUS_RECENT_PLAYLISTS = "prefPlusRecentPlaylists";
     public static final String PREF_SMART_MARK_AS_PLAYED_SECS = "prefSmartMarkAsPlayedSecs";
     private static final String PREF_PLAYBACK_SPEED_ARRAY = "prefPlaybackSpeedArray";
     public static final String PREF_PAUSE_PLAYBACK_FOR_FOCUS_LOSS = "prefPauseForFocusLoss";
@@ -498,6 +499,34 @@ public abstract class UserPreferences {
                     .remove(PREF_PLUS_PLAYLIST_SPEED_HOURS)
                     .apply();
         }
+    }
+
+    public static List<Long> getPlusRecentPlaylists() {
+        List<Long> ids = new ArrayList<>();
+        if (prefs == null) {
+            return ids;
+        }
+        for (String part : TextUtils.split(prefs.getString(PREF_PLUS_RECENT_PLAYLISTS, ""), ",")) {
+            try {
+                ids.add(Long.parseLong(part));
+            } catch (NumberFormatException e) {
+                // skip
+            }
+        }
+        return ids;
+    }
+
+    public static void notePlusPlaylistPlayed(long playlistId) {
+        if (prefs == null) {
+            return;
+        }
+        List<Long> ids = getPlusRecentPlaylists();
+        ids.remove(Long.valueOf(playlistId));
+        ids.add(0, playlistId);
+        while (ids.size() > 10) {
+            ids.remove(ids.size() - 1);
+        }
+        prefs.edit().putString(PREF_PLUS_RECENT_PLAYLISTS, TextUtils.join(",", ids)).apply();
     }
 
     public static int getSmartMarkAsPlayedSecs() {

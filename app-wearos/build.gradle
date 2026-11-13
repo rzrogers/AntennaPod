@@ -66,6 +66,7 @@ dependencies {
 
     // NOTE: DO NOT INCLUDE a dependency on androidx.compose.material:material, the watch version is a replacement
     implementation libs.androidx.wear
+    implementation libs.androidx.wear.input
     implementation libs.google.play.services.wearable
     implementation libs.androidx.wear.compose.foundation
     implementation libs.androidx.wear.compose.material3

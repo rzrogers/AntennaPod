@@ -25,10 +25,15 @@ final class PlusWearHandler {
         if (!PlusWear.isPlusPath(path)) {
             return false;
         }
+        if (PlusWearPlayer.handle(context, path, sourceNodeId)) {
+            return true;
+        }
         if (PlusWear.PLAYLISTS.equals(path)) {
             List<PlusWear.PlaylistRow> rows = new ArrayList<>();
+            List<Long> recent = UserPreferences.getPlusRecentPlaylists();
             for (AutoPlaylists.Row row : AutoPlaylists.describePlaylists(context)) {
-                rows.add(new PlusWear.PlaylistRow(row.id, row.title, row.subtitle, row.playable));
+                rows.add(new PlusWear.PlaylistRow(row.id, row.title, row.subtitle, row.playable,
+                        recent.indexOf(row.id)));
             }
             reply(context, sourceNodeId, path, PlusWear.playlistsToBytes(rows));
         } else if (PlusWear.LOADED_PLAYLIST.equals(path)) {

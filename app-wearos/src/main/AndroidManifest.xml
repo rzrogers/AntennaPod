@@ -20,14 +20,20 @@
             android:value="@integer/google_play_services_version" />
 
         <activity
-            android:name="de.danoeh.antennapod.wearos.MainListActivity"
+            android:name="de.danoeh.antennapod.wearos.PlayerActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:taskAffinity=".wearos">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.MainListActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
 
         <activity
             android:name="de.danoeh.antennapod.wearos.FeedListActivity"
@@ -46,6 +52,31 @@
 
         <activity
             android:name="de.danoeh.antennapod.wearos.PlaylistListActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.PlusQueueActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.SpeedSleepActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.OutputActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.LibraryActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
+            android:name="de.danoeh.antennapod.wearos.SearchActivity"
             android:exported="false"
             android:taskAffinity=".wearos" />
 
