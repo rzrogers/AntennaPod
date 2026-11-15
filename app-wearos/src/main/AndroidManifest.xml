@@ -56,6 +56,11 @@
             android:taskAffinity=".wearos" />
 
         <activity
+            android:name="de.danoeh.antennapod.wearos.PlusEpisodeListActivity"
+            android:exported="false"
+            android:taskAffinity=".wearos" />
+
+        <activity
             android:name="de.danoeh.antennapod.wearos.PlusQueueActivity"
             android:exported="false"
             android:taskAffinity=".wearos" />

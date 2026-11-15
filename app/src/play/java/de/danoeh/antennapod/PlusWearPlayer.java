@@ -22,6 +22,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.playback.service.PlaybackService;
@@ -45,6 +46,7 @@ final class PlusWearPlayer {
     private static final String TAG = "PlusWearPlayer";
     private static final int MAX_SEARCH_RESULTS = 40;
     private static final int MAX_ART_SIZE = 400;
+    private static final int MAX_LIST_ITEMS = 100;
 
     private PlusWearPlayer() {
     }
@@ -81,6 +83,8 @@ final class PlusWearPlayer {
             new Handler(Looper.getMainLooper()).post(() -> showOutputSwitcher(context));
         } else if (path.startsWith(PlusWear.ART_PREFIX)) {
             sendArt(context, nodeId, path);
+        } else if (path.startsWith(PlusWear.EPISODES_PREFIX)) {
+            reply(context, nodeId, path, PlusWear.episodeRowsToBytes(episodeRows(path)));
         } else if (path.startsWith(PlusWear.FEED_ART_PREFIX)) {
             sendFeedArt(context, nodeId, path);
         } else if (path.startsWith(PlusWear.SEARCH_PREFIX)) {
@@ -296,6 +300,37 @@ final class PlusWearPlayer {
         }
         if (currentRow != null) {
             rows.add(0, currentRow);
+        }
+        return rows;
+    }
+
+    private static List<PlusWear.EpisodeRow> episodeRows(String path) {
+        List<FeedItem> items;
+        if (PlusWear.EPISODES_ALL.equals(path)) {
+            items = DBReader.getEpisodes(0, MAX_LIST_ITEMS, FeedItemFilter.unfiltered(), SortOrder.DATE_NEW_OLD);
+        } else if (PlusWear.EPISODES_DOWNLOADED.equals(path)) {
+            items = DBReader.getEpisodes(0, MAX_LIST_ITEMS, new FeedItemFilter(FeedItemFilter.DOWNLOADED),
+                    SortOrder.DATE_NEW_OLD);
+        } else if (path.startsWith(PlusWear.EPISODES_FEED_PREFIX)) {
+            long feedId;
+            try {
+                feedId = Long.parseLong(path.substring(PlusWear.EPISODES_FEED_PREFIX.length()));
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Ignoring malformed episodes path: " + path, e);
+                return new ArrayList<>();
+            }
+            Feed feed = DBReader.getFeed(feedId, false, 0, MAX_LIST_ITEMS);
+            items = feed != null && feed.getItems() != null ? feed.getItems() : new ArrayList<>();
+        } else {
+            return new ArrayList<>();
+        }
+        FeedMedia media = currentMedia();
+        long currentId = media != null && media.getItem() != null ? media.getItem().getId() : 0;
+        List<PlusWear.EpisodeRow> rows = new ArrayList<>();
+        for (FeedItem item : items) {
+            if (item.hasMedia()) {
+                rows.add(row(item, item.getId() == currentId));
+            }
         }
         return rows;
     }

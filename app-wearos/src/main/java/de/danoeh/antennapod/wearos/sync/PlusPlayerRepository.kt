@@ -25,6 +25,9 @@ object PlusPlayerRepository {
     private val _queue = MutableStateFlow<List<PlusWear.EpisodeRow>?>(null)
     val queue: StateFlow<List<PlusWear.EpisodeRow>?> = _queue
 
+    private val _episodeLists = MutableStateFlow<Map<String, List<PlusWear.EpisodeRow>>>(emptyMap())
+    val episodeLists: StateFlow<Map<String, List<PlusWear.EpisodeRow>>> = _episodeLists
+
     private val _search = MutableStateFlow<PlusWear.SearchResults?>(null)
     val search: StateFlow<PlusWear.SearchResults?> = _search
 
@@ -48,6 +51,10 @@ object PlusPlayerRepository {
         when {
             path == PlusWear.PLAYER -> _player.value = applyPending(PlusWear.playerStateFromBytes(data))
             path == PlusWear.QUEUE -> _queue.value = PlusWear.episodeRowsFromBytes(data)
+            path.startsWith(PlusWear.EPISODES_PREFIX) -> {
+                val rows = PlusWear.episodeRowsFromBytes(data)
+                _episodeLists.update { it + (path to rows) }
+            }
             path == PlusWear.SEARCH_RESULTS -> _search.value = PlusWear.searchResultsFromBytes(data)
             path == PlusWear.VOLUME -> {
                 val values = PlusWear.volumeFromBytes(data)

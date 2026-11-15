@@ -100,9 +100,10 @@ private class EdgeTrack(scope: DrawScope, private val round: Boolean, private va
 }
 
 @Composable
-fun PlusVolumeIndicator(fraction: Float, round: Boolean) {
+fun PlusVolumeIndicator(level: Int, max: Int, round: Boolean) {
+    val safeMax = max.coerceAtLeast(1)
     val animated by animateFloatAsState(
-        targetValue = fraction.coerceIn(0f, 1f),
+        targetValue = level.coerceIn(0, safeMax).toFloat(),
         animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
         label = "volume"
     )
@@ -111,23 +112,35 @@ fun PlusVolumeIndicator(fraction: Float, round: Boolean) {
         val track = EdgeTrack(this, round, left = true, stroke = stroke)
         val gap = SEGMENT_GAP.toPx() / track.length
         val minPart = 2.dp.toPx() / track.length
-        val filled = animated.coerceIn(0f, 1f)
-        when {
-            filled <= 0.001f -> track.segment(this, TRACK_COLOR, 0f, 1f, stroke)
-            filled >= 0.999f -> track.segment(this, Color.White, 0f, 1f, stroke)
-            else -> {
-                val filledTop = (1f - filled).coerceIn(minPart + gap, 1f - minPart)
-                track.segment(this, TRACK_COLOR, 0f, filledTop - gap, stroke)
-                track.segment(this, Color.White, filledTop, 1f, stroke)
-            }
+        fun boundaryAt(step: Int): Float = when {
+            step >= safeMax -> 0f
+            step <= 0 -> 1f
+            else -> (1f - step.toFloat() / safeMax).coerceIn(minPart + gap, 1f - minPart)
         }
+        val x = animated.coerceIn(0f, safeMax.toFloat())
+        val low = floor(x).toInt()
+        val b = lerp(boundaryAt(low), boundaryAt(low + 1), x - low).coerceIn(0f, 1f)
+        val nearEnd = min(b, 1f - b)
+        val effectiveGap = gap * (nearEnd / (gap + minPart)).coerceIn(0f, 1f)
+        track.segment(this, TRACK_COLOR, 0f, b - effectiveGap, stroke)
+        track.segment(this, Color.White, b, 1f, stroke)
     }
 }
 
-private fun pageLayout(page: Int, pageCount: Int, dot: Float, gap: Float): List<Pair<Float, Float>> {
-    val big = 1f - (pageCount - 1) * (dot + gap)
+private val PILL_LENGTH = 13.dp
+
+private fun pageLayout(
+    page: Int,
+    pageCount: Int,
+    listPage: Int,
+    dot: Float,
+    pill: Float,
+    gap: Float
+): List<Pair<Float, Float>> {
+    val big = if (page == listPage) 1f - (pageCount - 1) * (dot + gap) else pill
+    val total = big + (pageCount - 1) * (dot + gap)
     val ranges = ArrayList<Pair<Float, Float>>()
-    var position = 0f
+    var position = (1f - total) / 2f
     for (i in 0 until pageCount) {
         val length = if (i == page) big else dot
         ranges.add(position to position + length)
@@ -146,7 +159,12 @@ fun scrollProgress(listState: ScalingLazyListState): Float {
     val index = listState.centerItemIndex
     val itemSize = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.size ?: 0
     val within = if (itemSize > 0) listState.centerItemScrollOffset.toFloat() / itemSize else 0f
-    return ((index + within) / (total - 1)).coerceIn(0f, 1f)
+    val first = min(1, total - 1).toFloat()
+    val last = (total - 1).toFloat()
+    if (last <= first) {
+        return 0f
+    }
+    return ((index + within - first) / (last - first)).coerceIn(0f, 1f)
 }
 
 @Composable
@@ -185,8 +203,9 @@ fun PlusPagerIndicator(pagerState: PagerState, listState: ScalingLazyListState, 
         val gap = SEGMENT_GAP.toPx() / track.length
         val base = floor(position).toInt().coerceAtMost(pageCount - 2).coerceAtLeast(0)
         val offset = position - base
-        val from = pageLayout(base, pageCount, dot, gap)
-        val to = pageLayout(base + 1, pageCount, dot, gap)
+        val pill = PILL_LENGTH.toPx() / track.length
+        val from = pageLayout(base, pageCount, listPage, dot, pill, gap)
+        val to = pageLayout(base + 1, pageCount, listPage, dot, pill, gap)
         val dotColor = Color.White.copy(alpha = 0.4f * alpha)
         for (i in 0 until pageCount) {
             if (i != base && i != base + 1) {

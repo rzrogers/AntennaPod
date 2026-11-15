@@ -139,6 +139,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     var lastStepAt by remember { mutableLongStateOf(0L) }
     var volumeShownAt by remember { mutableLongStateOf(0L) }
     var listTickPixels by remember { mutableFloatStateOf(0f) }
+    var listAtEnd by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val state by PlusPlayerRepository.player.collectAsState()
     val art by PlusPlayerRepository.art.collectAsState()
@@ -194,7 +195,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.drop(1).collect {
-            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         }
     }
     val stepVolume: (Boolean) -> Unit = { up ->
@@ -246,11 +247,18 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
             .onRotaryScrollEvent { event ->
                 if (pagerState.currentPage == PAGE_LISTS) {
                     scope.launch {
-                        listTickPixels += listState.scrollBy(event.verticalScrollPixels)
+                        val requested = event.verticalScrollPixels
+                        val consumed = listState.scrollBy(requested)
+                        listTickPixels += consumed
                         if (abs(listTickPixels) >= LIST_TICK_PIXELS) {
                             listTickPixels %= LIST_TICK_PIXELS
                             view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         }
+                        val hitEnd = abs(consumed) < abs(requested) - 0.5f
+                        if (hitEnd && !listAtEnd) {
+                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                        }
+                        listAtEnd = hitEnd
                     }
                 } else {
                     rotaryPixels += event.verticalScrollPixels
@@ -267,6 +275,13 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     ) {
         val unit = maxWidth / 192f
         val textScale = maxWidth.value / 192f
+        val pagePosition = pagerState.currentPage + pagerState.currentPageOffsetFraction
+        val artAlpha = (PAGE_LISTS - pagePosition).coerceIn(0f, 1f)
+        if (artAlpha > 0f) {
+            Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = artAlpha }) {
+                ArtBackground(bitmap = bitmap, dim = 0.55f + 0.15f * (1f - pagePosition).coerceIn(0f, 1f))
+            }
+        }
         VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             when (page) {
                 PAGE_SIMPLE -> SimplePage(
@@ -317,9 +332,9 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
         }
         PlusPagerIndicator(pagerState = pagerState, listState = listState, listPage = PAGE_LISTS, round = round)
         val volumeAlpha by animateFloatAsState(if (showVolume) 1f else 0f, label = "volumeAlpha")
-        if (volumeMax > 0 && volumeAlpha > 0f) {
+        if (volumeMax > 0) {
             Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = volumeAlpha }) {
-                PlusVolumeIndicator(fraction = volumeLevel.coerceAtLeast(0).toFloat() / volumeMax, round = round)
+                PlusVolumeIndicator(level = volumeLevel.coerceAtLeast(0), max = volumeMax, round = round)
             }
         }
     }
@@ -353,7 +368,6 @@ private fun SimplePage(
     onPlayPause: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        ArtBackground(bitmap = bitmap, dim = 0.7f)
         Column(
             modifier = Modifier.fillMaxSize().padding(top = unit * 12),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -404,7 +418,6 @@ private fun MainPage(
     onSpeedLong: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        ArtBackground(bitmap = bitmap, dim = 0.55f)
         Column(
             modifier = Modifier.fillMaxSize().padding(top = unit * 6),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -419,7 +432,8 @@ private fun MainPage(
                 text = title,
                 fontSize = 14 * textScale,
                 fitPadding = if (round) unit * 22 else unit * 8,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                startPadding = if (round) unit * 30 else unit * 8
             )
             EdgeMarqueeText(
                 text = feedTitle,

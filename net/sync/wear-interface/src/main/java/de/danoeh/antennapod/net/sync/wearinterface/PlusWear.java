@@ -28,6 +28,10 @@ public final class PlusWear {
     public static final String OUTPUT_PICKER = "/plus_output_picker";
     public static final String ART_PREFIX = "/plus_art/";
     public static final String FEED_ART_PREFIX = "/plus_feed_art/";
+    public static final String EPISODES_PREFIX = "/plus_episodes/";
+    public static final String EPISODES_ALL = EPISODES_PREFIX + "all";
+    public static final String EPISODES_DOWNLOADED = EPISODES_PREFIX + "downloaded";
+    public static final String EPISODES_FEED_PREFIX = EPISODES_PREFIX + "feed/";
     public static final String SEARCH_PREFIX = "/plus_search/";
     public static final String SEARCH_RESULTS = "/plus_search_results";
     public static final int OUTPUT_SPEAKER = 0;
@@ -81,6 +85,10 @@ public final class PlusWear {
 
     public static String feedArtPath(long feedId, int size) {
         return FEED_ART_PREFIX + feedId + "/" + size;
+    }
+
+    public static String feedEpisodesPath(long feedId) {
+        return EPISODES_FEED_PREFIX + feedId;
     }
 
     public static String searchPath(@NonNull String query) {

@@ -34,9 +34,10 @@ class LibraryActivity : ComponentActivity() {
                         PlusWear.PLAYLISTS -> Intent(this, PlaylistListActivity::class.java)
                         WearDataPaths.QUEUE -> Intent(this, PlusQueueActivity::class.java)
                         WearDataPaths.SUBSCRIPTIONS -> Intent(this, FeedListActivity::class.java)
-                        else -> Intent(this, EpisodeListActivity::class.java).apply {
-                            putExtra(EpisodeListActivity.EXTRA_PATH, path)
-                        }
+                        WearDataPaths.DOWNLOADS -> PlusEpisodeListActivity.intent(this, PlusWear.EPISODES_DOWNLOADED,
+                            getString(NavigationNames.getTitleResForPath(path)))
+                        else -> PlusEpisodeListActivity.intent(this, PlusWear.EPISODES_ALL,
+                            getString(NavigationNames.getTitleResForPath(path)))
                     }
                     startActivity(intent)
                 })

@@ -13,8 +13,9 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.model.feed.Feed
+import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
-import de.danoeh.antennapod.wearos.composable.ListItem
+import de.danoeh.antennapod.wearos.composable.FeedRowItem
 import de.danoeh.antennapod.wearos.composable.ListScaffold
 
 class FeedListActivity : ComponentActivity() {
@@ -26,10 +27,8 @@ class FeedListActivity : ComponentActivity() {
             MaterialTheme(colorScheme = dynamicColorScheme(this) ?: MaterialTheme.colorScheme) {
                 val uiState by viewModel.uiState.collectAsState()
                 FeedListScreen(uiState = uiState, onOpenFeedEpisodes = { feedId ->
-                    val intent = Intent(this, EpisodeListActivity::class.java).apply {
-                        putExtra(EpisodeListActivity.EXTRA_PATH, WearDataPaths.feedEpisodesPath(feedId))
-                    }
-                    startActivity(intent)
+                    val title = uiState.feeds?.firstOrNull { it.id == feedId }?.title ?: ""
+                    startActivity(PlusEpisodeListActivity.intent(this, PlusWear.feedEpisodesPath(feedId), title))
                 })
             }
         }
@@ -50,10 +49,7 @@ fun FeedListScreen(uiState: FeedListUiState, onOpenFeedEpisodes: (Long) -> Unit)
         isEmpty = feeds?.isEmpty() == true
     ) {
         items(feeds!!) { feed ->
-            ListItem(
-                text = feed.title ?: "",
-                onClick = { onOpenFeedEpisodes(feed.id) }
-            )
+            FeedRowItem(feedId = feed.id, title = feed.title ?: "", onClick = { onOpenFeedEpisodes(feed.id) })
         }
     }
 }

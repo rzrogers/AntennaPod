@@ -55,6 +55,7 @@ import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
 import de.danoeh.antennapod.net.sync.wearinterface.WearDataPaths
 import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.EpisodeRowItem
+import de.danoeh.antennapod.wearos.composable.FeedRowItem
 import de.danoeh.antennapod.wearos.composable.ListItem
 import de.danoeh.antennapod.wearos.composable.SectionLabel
 import de.danoeh.antennapod.wearos.sync.PlusPlayerRepository
@@ -73,10 +74,8 @@ class SearchActivity : ComponentActivity() {
             MaterialTheme(colorScheme = dynamicColorScheme(this) ?: MaterialTheme.colorScheme) {
                 SearchScreen(
                     initialQuery = initialQuery,
-                    onOpenFeed = { feedId ->
-                        startActivity(Intent(this, EpisodeListActivity::class.java).apply {
-                            putExtra(EpisodeListActivity.EXTRA_PATH, WearDataPaths.feedEpisodesPath(feedId))
-                        })
+                    onOpenFeed = { feedId, title ->
+                        startActivity(PlusEpisodeListActivity.intent(this, PlusWear.feedEpisodesPath(feedId), title))
                     },
                     onPlayed = {
                         startActivity(Intent(this, PlayerActivity::class.java)
@@ -116,7 +115,7 @@ fun searchQueryFrom(data: Intent?): String? {
 }
 
 @Composable
-fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: () -> Unit) {
+fun SearchScreen(initialQuery: String?, onOpenFeed: (Long, String) -> Unit, onPlayed: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val results by PlusPlayerRepository.search.collectAsState()
@@ -178,7 +177,7 @@ fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: ()
                 if (found.feeds.isNotEmpty()) {
                     item { SectionLabel(text = stringResource(CommonR.string.plus_wear_shows)) }
                     items(found.feeds) { feed ->
-                        FeedRowItem(feed = feed, onClick = { onOpenFeed(feed.id) })
+                        FeedRowItem(feedId = feed.id, title = feed.title, onClick = { onOpenFeed(feed.id, feed.title) })
                     }
                 }
                 if (found.episodes.isNotEmpty()) {
@@ -195,43 +194,5 @@ fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: ()
             }
         }
         PlusScrollIndicator(listState = scrollState)
-    }
-}
-
-@Composable
-private fun FeedRowItem(feed: PlusWear.FeedRow, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val art by PlusPlayerRepository.art.collectAsState()
-    LaunchedEffect(feed.id) {
-        PlusPlayerRepository.requestFeedArt(context, feed.id, PlusPlayerRepository.ART_SMALL)
-    }
-    val bitmap = art[PlusPlayerRepository.feedArtKey(feed.id, PlusPlayerRepository.ART_SMALL)]
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, topEnd = 28.dp, bottomEnd = 28.dp))
-            .background(PlusChip)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(56.dp).background(Color(0xFF3D4047))) {
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
-        Text(
-            text = feed.title,
-            modifier = Modifier.padding(start = 10.dp, end = 14.dp),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }

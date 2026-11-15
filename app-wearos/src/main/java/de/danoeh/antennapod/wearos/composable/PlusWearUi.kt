@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -162,7 +163,8 @@ fun EdgeMarqueeText(
     fontSize: Float,
     fitPadding: Dp,
     color: Color = Color.White,
-    fontWeight: FontWeight = FontWeight.Normal
+    fontWeight: FontWeight = FontWeight.Normal,
+    startPadding: Dp = fitPadding
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -176,14 +178,14 @@ fun EdgeMarqueeText(
         if (textWidth <= fitWidthPx) {
             Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
         } else {
-            val leadPx = with(density) { fitPadding.toPx() }
+            val leadPx = with(density) { startPadding.toPx() }
             val extra = with(density) { (fullWidthPx - leadPx - textWidth).coerceAtLeast(0f).toDp() } + 1.dp
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .basicMarquee(initialDelayMillis = 1500, spacing = MarqueeSpacing(maxWidth / 6))
             ) {
-                Spacer(modifier = Modifier.width(fitPadding))
+                Spacer(modifier = Modifier.width(startPadding))
                 Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.width(extra))
             }
@@ -294,7 +296,7 @@ fun RoundIconButton(
 }
 
 @Composable
-fun EpisodeRowItem(row: PlusWear.EpisodeRow, onClick: () -> Unit) {
+fun EpisodeRowItem(row: PlusWear.EpisodeRow, showFeed: Boolean = true, onClick: () -> Unit) {
     val context = LocalContext.current
     val art by PlusPlayerRepository.art.collectAsState()
     LaunchedEffect(row.id) {
@@ -328,13 +330,15 @@ fun EpisodeRowItem(row: PlusWear.EpisodeRow, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 MarqueeText(text = row.title, fontSize = 13f, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = row.feedTitle,
-                    color = PlusAccent,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (showFeed) {
+                    Text(
+                        text = row.feedTitle,
+                        color = PlusAccent,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
                     text = episodeInfo(context, row),
                     color = PlusSecondaryText,
@@ -356,4 +360,42 @@ fun SectionLabel(text: String) {
         fontSize = 12.sp,
         textAlign = TextAlign.Center
     )
+}
+
+@Composable
+fun FeedRowItem(feedId: Long, title: String, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val art by PlusPlayerRepository.art.collectAsState()
+    LaunchedEffect(feedId) {
+        PlusPlayerRepository.requestFeedArt(context, feedId, PlusPlayerRepository.ART_SMALL)
+    }
+    val bitmap = art[PlusPlayerRepository.feedArtKey(feedId, PlusPlayerRepository.ART_SMALL)]
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, topEnd = 26.dp, bottomEnd = 26.dp))
+            .background(PlusChip)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(52.dp).background(Color(0xFF3D4047))) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        Text(
+            text = title,
+            modifier = Modifier.padding(start = 10.dp, end = 14.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
