@@ -125,6 +125,7 @@ private const val VOLUME_STEP_PIXELS = 60f
 private const val VOLUME_SHOW_MILLIS = 1500L
 private const val VOLUME_SYNC_DELAY_MILLIS = 400L
 private const val LIST_TICK_PIXELS = 48f
+private const val ART_RETRY_CHECK_MILLIS = 3_000L
 
 @Composable
 fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
@@ -159,7 +160,11 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     }
     val itemId = state?.itemId ?: 0L
     LaunchedEffect(itemId) {
-        PlusPlayerRepository.requestArt(context, itemId, PlusPlayerRepository.ART_LARGE)
+        val key = PlusPlayerRepository.artKey(itemId, PlusPlayerRepository.ART_LARGE)
+        while (itemId > 0 && !PlusPlayerRepository.art.value.containsKey(key)) {
+            PlusPlayerRepository.requestArt(context, itemId, PlusPlayerRepository.ART_LARGE)
+            delay(ART_RETRY_CHECK_MILLIS)
+        }
     }
     LaunchedEffect(pagerState.isScrollInProgress) {
         if (!pagerState.isScrollInProgress) {

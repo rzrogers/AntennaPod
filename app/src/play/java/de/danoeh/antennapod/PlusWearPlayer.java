@@ -289,17 +289,8 @@ final class PlusWearPlayer {
         FeedMedia media = currentMedia();
         long currentId = media != null && media.getItem() != null ? media.getItem().getId() : 0;
         List<PlusWear.EpisodeRow> rows = new ArrayList<>();
-        PlusWear.EpisodeRow currentRow = null;
         for (FeedItem item : DBReader.getQueue()) {
-            PlusWear.EpisodeRow row = row(item, item.getId() == currentId);
-            if (row.current) {
-                currentRow = row;
-            } else {
-                rows.add(row);
-            }
-        }
-        if (currentRow != null) {
-            rows.add(0, currentRow);
+            rows.add(row(item, item.getId() == currentId));
         }
         return rows;
     }

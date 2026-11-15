@@ -17,7 +17,7 @@ object PlusPlayerRepository {
     const val ART_LARGE = 400
     const val ART_SMALL = 96
     private const val MAX_ART = 60
-    private const val RETRY_ART_MILLIS = 30_000L
+    private const val RETRY_ART_MILLIS = 8_000L
 
     private val _player = MutableStateFlow<PlusWear.PlayerState?>(null)
     val player: StateFlow<PlusWear.PlayerState?> = _player

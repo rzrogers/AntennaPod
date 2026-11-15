@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ private val VOLUME_STROKE = 8.dp
 private val SEGMENT_GAP = 4.dp
 private val EDGE_PADDING = 3.dp
 private val TRACK_COLOR = Color.White.copy(alpha = 0.3f)
+private val VOLUME_COLOR = Color(0xFF0078C2)
 
 /**
  * A short track along the left or right edge of the screen, curved on round screens and straight on square ones.
@@ -123,7 +125,7 @@ fun PlusVolumeIndicator(level: Int, max: Int, round: Boolean) {
         val nearEnd = min(b, 1f - b)
         val effectiveGap = gap * (nearEnd / (gap + minPart)).coerceIn(0f, 1f)
         track.segment(this, TRACK_COLOR, 0f, b - effectiveGap, stroke)
-        track.segment(this, Color.White, b, 1f, stroke)
+        track.segment(this, VOLUME_COLOR, b, 1f, stroke)
     }
 }
 
@@ -207,28 +209,59 @@ fun PlusPagerIndicator(pagerState: PagerState, listState: ScalingLazyListState, 
         val from = pageLayout(base, pageCount, listPage, dot, pill, gap)
         val to = pageLayout(base + 1, pageCount, listPage, dot, pill, gap)
         val dotColor = Color.White.copy(alpha = 0.4f * alpha)
-        for (i in 0 until pageCount) {
-            if (i != base && i != base + 1) {
-                track.segment(this, dotColor, from[i].first, from[i].second, stroke)
+        val thumbColor = Color.White.copy(alpha = alpha)
+        val trackColor = TRACK_COLOR.copy(alpha = TRACK_COLOR.alpha * alpha)
+        if (base + 1 == listPage) {
+            val barStart = listPage * (dot + gap)
+            val thumbLength = (1f - barStart) * THUMB_FRACTION
+            val thumbTop = barStart + (1f - barStart - thumbLength) * progress
+            val thumbBottom = thumbTop + thumbLength
+            for (i in 0 until base) {
+                val top = lerp(from[i].first, i * (dot + gap), offset)
+                track.segment(this, dotColor, top, top + dot, stroke)
             }
-        }
-        track.segment(this, dotColor.copy(alpha = dotColor.alpha * offset), to[base].first, to[base].second, stroke)
-        track.segment(this, dotColor.copy(alpha = dotColor.alpha * (1f - offset)),
-            from[base + 1].first, from[base + 1].second, stroke)
-        val early = min(1f, offset * 2f)
-        val late = (offset * 2f - 1f).coerceIn(0f, 1f)
-        val top = lerp(from[base].first, to[base + 1].first, late)
-        val bottom = lerp(from[base].second, to[base + 1].second, early)
-        val onList = position >= listPage - 0.5f
-        if (onList) {
-            track.segment(this, TRACK_COLOR.copy(alpha = TRACK_COLOR.alpha * alpha), top, bottom, stroke)
-            val thumb = (bottom - top) * THUMB_FRACTION
-            val thumbTop = top + (bottom - top - thumb) * progress
-            track.segment(this, Color.White.copy(alpha = alpha), thumbTop, thumbTop + thumb, stroke)
+            val release = smoothStep((offset - 0.7f) / 0.3f)
+            val ownDotTop = base * (dot + gap)
+            track.segment(this, dotColor.copy(alpha = dotColor.alpha * release), ownDotTop, ownDotTop + dot, stroke)
+            val stretch = easeOut(offset)
+            val grow = easeOut(min(1f, offset * 1.3f))
+            val markTop = lerp(from[base].first, thumbTop, release)
+            val markBottom = lerp(from[base].second, thumbBottom, stretch)
+            val growTop = maxOf(lerp(from[listPage].first, thumbBottom + gap, grow), markBottom + gap)
+            val growBottom = lerp(from[listPage].second, 1f, grow)
+            track.segment(this, lerpColor(dotColor, trackColor, grow), growTop, growBottom, stroke)
+            if (thumbTop - gap > barStart) {
+                track.segment(this, trackColor.copy(alpha = trackColor.alpha * release), barStart,
+                    min(thumbTop, markTop) - gap, stroke)
+            }
+            track.segment(this, thumbColor, markTop, markBottom, stroke)
         } else {
-            track.segment(this, Color.White.copy(alpha = alpha), top, bottom, stroke)
+            for (i in 0 until pageCount) {
+                if (i != base && i != base + 1) {
+                    track.segment(this, dotColor, from[i].first, from[i].second, stroke)
+                }
+            }
+            track.segment(this, dotColor.copy(alpha = dotColor.alpha * offset), to[base].first, to[base].second,
+                stroke)
+            track.segment(this, dotColor.copy(alpha = dotColor.alpha * (1f - offset)),
+                from[base + 1].first, from[base + 1].second, stroke)
+            val early = min(1f, offset * 2f)
+            val late = (offset * 2f - 1f).coerceIn(0f, 1f)
+            val top = lerp(from[base].first, to[base + 1].first, late)
+            val bottom = lerp(from[base].second, to[base + 1].second, early)
+            track.segment(this, thumbColor, top, bottom, stroke)
         }
     }
+}
+
+private fun easeOut(t: Float): Float {
+    val x = t.coerceIn(0f, 1f)
+    return 1f - (1f - x) * (1f - x)
+}
+
+private fun smoothStep(t: Float): Float {
+    val x = t.coerceIn(0f, 1f)
+    return x * x * (3f - 2f * x)
 }
 
 /** Scroll bar for list screens, matching the pager indicator's size and look. */
@@ -243,8 +276,12 @@ fun PlusScrollIndicator(listState: ScalingLazyListState, modifier: Modifier = Mo
     Canvas(modifier = modifier.fillMaxSize().padding(EDGE_PADDING)) {
         val stroke = INDICATOR_STROKE.toPx()
         val track = EdgeTrack(this, round, left = false, stroke = stroke)
-        track.segment(this, TRACK_COLOR.copy(alpha = TRACK_COLOR.alpha * alpha), 0f, 1f, stroke)
+        val gap = SEGMENT_GAP.toPx() / track.length
+        val trackColor = TRACK_COLOR.copy(alpha = TRACK_COLOR.alpha * alpha)
         val thumbTop = (1f - THUMB_FRACTION) * progress
-        track.segment(this, Color.White.copy(alpha = alpha), thumbTop, thumbTop + THUMB_FRACTION, stroke)
+        val thumbBottom = thumbTop + THUMB_FRACTION
+        track.segment(this, trackColor, 0f, thumbTop - gap, stroke)
+        track.segment(this, Color.White.copy(alpha = alpha), thumbTop, thumbBottom, stroke)
+        track.segment(this, trackColor, thumbBottom + gap, 1f, stroke)
     }
 }
