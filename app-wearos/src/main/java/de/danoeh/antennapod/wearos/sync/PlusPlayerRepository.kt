@@ -38,9 +38,15 @@ object PlusPlayerRepository {
 
     fun artKey(itemId: Long, size: Int): String = "$itemId/$size"
 
+    fun feedArtKey(feedId: Long, size: Int): String = "feed/$feedId/$size"
+
+    private const val PENDING_PLAY_MILLIS = 4_000L
+    private var pendingPlaying: Boolean? = null
+    private var pendingUntil = 0L
+
     fun handle(path: String, data: ByteArray): Boolean {
         when {
-            path == PlusWear.PLAYER -> _player.value = PlusWear.playerStateFromBytes(data)
+            path == PlusWear.PLAYER -> _player.value = applyPending(PlusWear.playerStateFromBytes(data))
             path == PlusWear.QUEUE -> _queue.value = PlusWear.episodeRowsFromBytes(data)
             path == PlusWear.SEARCH_RESULTS -> _search.value = PlusWear.searchResultsFromBytes(data)
             path == PlusWear.VOLUME -> {
@@ -48,8 +54,12 @@ object PlusPlayerRepository {
                 _volume.value = VolumeLevel(values[0], values[1], SystemClock.elapsedRealtime())
                 _player.update { it?.withVolume(values[0], values[1]) }
             }
-            path.startsWith(PlusWear.ART_PREFIX) -> {
-                val key = path.substring(PlusWear.ART_PREFIX.length)
+            path.startsWith(PlusWear.ART_PREFIX) || path.startsWith(PlusWear.FEED_ART_PREFIX) -> {
+                val key = if (path.startsWith(PlusWear.ART_PREFIX)) {
+                    path.substring(PlusWear.ART_PREFIX.length)
+                } else {
+                    "feed/" + path.substring(PlusWear.FEED_ART_PREFIX.length)
+                }
                 if (data.isNotEmpty()) {
                     val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
                     if (bitmap != null) {
@@ -80,7 +90,37 @@ object PlusPlayerRepository {
         WearMessageSender.send(context, PlusWear.artPath(itemId, size))
     }
 
+    suspend fun requestFeedArt(context: Context, feedId: Long, size: Int) {
+        if (feedId <= 0) {
+            return
+        }
+        val key = feedArtKey(feedId, size)
+        val now = SystemClock.elapsedRealtime()
+        val last = requestedArt[key]
+        if (_art.value.containsKey(key) || (last != null && now - last < RETRY_ART_MILLIS)) {
+            return
+        }
+        requestedArt[key] = now
+        WearMessageSender.send(context, PlusWear.feedArtPath(feedId, size))
+    }
+
+    @Synchronized
+    private fun applyPending(state: PlusWear.PlayerState?): PlusWear.PlayerState? {
+        val pending = pendingPlaying ?: return state
+        if (state == null) {
+            return null
+        }
+        if (state.playing == pending || SystemClock.elapsedRealtime() > pendingUntil) {
+            pendingPlaying = null
+            return state
+        }
+        return state.withPlaying(pending)
+    }
+
+    @Synchronized
     fun setPlaying(playing: Boolean) {
+        pendingPlaying = playing
+        pendingUntil = SystemClock.elapsedRealtime() + PENDING_PLAY_MILLIS
         _player.update { it?.withPlaying(playing) }
     }
 

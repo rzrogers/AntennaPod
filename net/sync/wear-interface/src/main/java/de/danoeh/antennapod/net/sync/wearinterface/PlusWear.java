@@ -27,6 +27,7 @@ public final class PlusWear {
     public static final String VOLUME = "/plus_volume";
     public static final String OUTPUT_PICKER = "/plus_output_picker";
     public static final String ART_PREFIX = "/plus_art/";
+    public static final String FEED_ART_PREFIX = "/plus_feed_art/";
     public static final String SEARCH_PREFIX = "/plus_search/";
     public static final String SEARCH_RESULTS = "/plus_search_results";
     public static final int OUTPUT_SPEAKER = 0;
@@ -76,6 +77,10 @@ public final class PlusWear {
 
     public static String artPath(long itemId, int size) {
         return ART_PREFIX + itemId + "/" + size;
+    }
+
+    public static String feedArtPath(long feedId, int size) {
+        return FEED_ART_PREFIX + feedId + "/" + size;
     }
 
     public static String searchPath(@NonNull String query) {

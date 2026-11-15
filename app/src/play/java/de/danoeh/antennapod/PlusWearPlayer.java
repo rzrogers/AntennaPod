@@ -81,6 +81,8 @@ final class PlusWearPlayer {
             new Handler(Looper.getMainLooper()).post(() -> showOutputSwitcher(context));
         } else if (path.startsWith(PlusWear.ART_PREFIX)) {
             sendArt(context, nodeId, path);
+        } else if (path.startsWith(PlusWear.FEED_ART_PREFIX)) {
+            sendFeedArt(context, nodeId, path);
         } else if (path.startsWith(PlusWear.SEARCH_PREFIX)) {
             String query = path.substring(PlusWear.SEARCH_PREFIX.length());
             reply(context, nodeId, PlusWear.SEARCH_RESULTS, PlusWear.searchResultsToBytes(search(query)));
@@ -351,6 +353,33 @@ final class PlusWearPlayer {
             if (bitmap == null) {
                 bitmap = loadBitmap(context, ImageResourceUtils.getFallbackImageLocation(item), size);
             }
+            if (bitmap != null) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
+                bytes = out.toByteArray();
+            }
+        }
+        reply(context, nodeId, path, bytes);
+    }
+
+    private static void sendFeedArt(Context context, String nodeId, String path) {
+        String[] parts = path.substring(PlusWear.FEED_ART_PREFIX.length()).split("/");
+        if (parts.length != 2) {
+            return;
+        }
+        long feedId;
+        int size;
+        try {
+            feedId = Long.parseLong(parts[0]);
+            size = Math.min(MAX_ART_SIZE, Integer.parseInt(parts[1]));
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "Ignoring malformed feed art path: " + path, e);
+            return;
+        }
+        Feed feed = DBReader.getFeed(feedId, false, 0, 0);
+        byte[] bytes = new byte[0];
+        if (feed != null) {
+            Bitmap bitmap = loadBitmap(context, feed.getImageUrl(), size);
             if (bitmap != null) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);

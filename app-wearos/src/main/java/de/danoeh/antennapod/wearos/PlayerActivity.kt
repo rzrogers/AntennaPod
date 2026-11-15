@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,7 +75,6 @@ import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
@@ -79,6 +83,8 @@ import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.ListItem
 import de.danoeh.antennapod.wearos.composable.EdgeMarqueeText
 import de.danoeh.antennapod.wearos.composable.PlusAccent
+import de.danoeh.antennapod.wearos.composable.PlusPagerIndicator
+import de.danoeh.antennapod.wearos.composable.PlusVolumeIndicator
 import de.danoeh.antennapod.wearos.composable.PollWhileStarted
 import de.danoeh.antennapod.wearos.composable.RingPlayButton
 import de.danoeh.antennapod.wearos.composable.RoundButton
@@ -92,6 +98,7 @@ import de.danoeh.antennapod.wearos.sync.PlusWearRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
 import kotlin.math.abs
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 class PlayerActivity : ComponentActivity() {
@@ -116,8 +123,8 @@ private const val PAGE_PLAYER = 1
 private const val PAGE_LISTS = 2
 private const val VOLUME_STEP_PIXELS = 60f
 private const val VOLUME_SHOW_MILLIS = 1500L
-private const val VOLUME_ARC_SWEEP = 50f
-private const val VOLUME_ARC_GAP = 4f
+private const val VOLUME_SYNC_DELAY_MILLIS = 400L
+private const val LIST_TICK_PIXELS = 48f
 
 @Composable
 fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
@@ -127,7 +134,11 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     val searchLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         searchQueryFrom(result.data)?.let(onSearch)
     }
-    var lastVolumeLevel by remember { mutableIntStateOf(-1) }
+    var volumeLevel by remember { mutableIntStateOf(-1) }
+    var volumeMax by remember { mutableIntStateOf(0) }
+    var lastStepAt by remember { mutableLongStateOf(0L) }
+    var volumeShownAt by remember { mutableLongStateOf(0L) }
+    var listTickPixels by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
     val state by PlusPlayerRepository.player.collectAsState()
     val art by PlusPlayerRepository.art.collectAsState()
@@ -158,17 +169,56 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
             }
         }
     }
-    LaunchedEffect(volume?.stamp) {
-        val level = volume ?: return@LaunchedEffect
-        if (level.max > 0 && level.level >= level.max && lastVolumeLevel in 0 until level.max) {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    LaunchedEffect(state?.volumeMax) {
+        val known = state ?: return@LaunchedEffect
+        if (volumeLevel < 0 && known.volumeMax > 0) {
+            volumeLevel = known.volume
+            volumeMax = known.volumeMax
         }
-        lastVolumeLevel = level.level
-        val stamp = level.stamp
-        if (SystemClock.elapsedRealtime() - stamp < VOLUME_SHOW_MILLIS) {
+    }
+    LaunchedEffect(volume?.stamp) {
+        val reply = volume ?: return@LaunchedEffect
+        val wait = VOLUME_SYNC_DELAY_MILLIS - (SystemClock.elapsedRealtime() - lastStepAt)
+        if (wait > 0) {
+            delay(wait)
+        }
+        volumeMax = reply.max
+        volumeLevel = PlusPlayerRepository.volume.value?.level ?: reply.level
+    }
+    LaunchedEffect(volumeShownAt) {
+        if (volumeShownAt > 0) {
             showVolume = true
             delay(VOLUME_SHOW_MILLIS)
             showVolume = false
+        }
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.drop(1).collect {
+            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        }
+    }
+    val stepVolume: (Boolean) -> Unit = { up ->
+        val max = if (volumeMax > 0) volumeMax else state?.volumeMax ?: 0
+        val now = SystemClock.elapsedRealtime()
+        lastStepAt = now
+        volumeShownAt = now
+        if (max <= 0) {
+            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            scope.launch { WearMessageSender.send(context, if (up) PlusWear.VOLUME_UP else PlusWear.VOLUME_DOWN) }
+        } else {
+            val currentLevel = if (volumeLevel >= 0) volumeLevel else state?.volume ?: 0
+            val next = (currentLevel + if (up) 1 else -1).coerceIn(0, max)
+            if (next != currentLevel) {
+                volumeLevel = next
+                volumeMax = max
+                view.performHapticFeedback(
+                    if (next == max || next == 0) HapticFeedbackConstants.LONG_PRESS
+                    else HapticFeedbackConstants.CLOCK_TICK
+                )
+                scope.launch {
+                    WearMessageSender.send(context, if (up) PlusWear.VOLUME_UP else PlusWear.VOLUME_DOWN)
+                }
+            }
         }
     }
 
@@ -195,21 +245,19 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
             .background(Color.Black)
             .onRotaryScrollEvent { event ->
                 if (pagerState.currentPage == PAGE_LISTS) {
-                    scope.launch { listState.scrollBy(event.verticalScrollPixels) }
+                    scope.launch {
+                        listTickPixels += listState.scrollBy(event.verticalScrollPixels)
+                        if (abs(listTickPixels) >= LIST_TICK_PIXELS) {
+                            listTickPixels %= LIST_TICK_PIXELS
+                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        }
+                    }
                 } else {
                     rotaryPixels += event.verticalScrollPixels
                     while (abs(rotaryPixels) >= VOLUME_STEP_PIXELS) {
                         val up = rotaryPixels > 0
                         rotaryPixels -= if (up) VOLUME_STEP_PIXELS else -VOLUME_STEP_PIXELS
-                        val known = PlusPlayerRepository.volume.value
-                        if (up && known != null && known.max > 0 && known.level >= known.max) {
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        } else {
-                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                        }
-                        scope.launch {
-                            WearMessageSender.send(context, if (up) PlusWear.VOLUME_UP else PlusWear.VOLUME_DOWN)
-                        }
+                        stepVolume(up)
                     }
                 }
                 true
@@ -267,14 +315,12 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
                 )
             }
         }
-        if (pagerState.currentPage == PAGE_LISTS && !pagerState.isScrollInProgress) {
-            ScrollIndicator(state = listState, modifier = Modifier.align(Alignment.CenterEnd))
-        } else {
-            PageDots(pagerState = pagerState, modifier = Modifier.align(Alignment.CenterEnd))
-        }
-        val level = volume
-        if (showVolume && level != null && level.max > 0) {
-            VolumeIndicator(fraction = level.level.toFloat() / level.max.toFloat(), round = round)
+        PlusPagerIndicator(pagerState = pagerState, listState = listState, listPage = PAGE_LISTS, round = round)
+        val volumeAlpha by animateFloatAsState(if (showVolume) 1f else 0f, label = "volumeAlpha")
+        if (volumeMax > 0 && volumeAlpha > 0f) {
+            Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = volumeAlpha }) {
+                PlusVolumeIndicator(fraction = volumeLevel.coerceAtLeast(0).toFloat() / volumeMax, round = round)
+            }
         }
     }
 }
@@ -313,7 +359,7 @@ private fun SimplePage(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = rememberClockText(),
+                text = rememberClockText(withAmPm = false),
                 color = PlusAccent,
                 fontSize = (30 * textScale).sp,
                 fontWeight = FontWeight.Bold
@@ -460,20 +506,16 @@ private fun ListsPage(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
             ) {
-                FilledTonalButton(onClick = onSearch, modifier = Modifier.width(64.dp)) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_plus_search),
-                        contentDescription = stringResource(CommonR.string.search_label),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                FilledTonalButton(onClick = onLibrary, modifier = Modifier.width(64.dp)) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_plus_library),
-                        contentDescription = stringResource(CommonR.string.plus_wear_library),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                PillIconButton(
+                    iconRes = R.drawable.ic_plus_search,
+                    contentDescription = stringResource(CommonR.string.search_label),
+                    onClick = onSearch
+                )
+                PillIconButton(
+                    iconRes = R.drawable.ic_plus_library,
+                    contentDescription = stringResource(CommonR.string.plus_wear_library),
+                    onClick = onLibrary
+                )
             }
         }
         item {
@@ -503,79 +545,19 @@ private fun ListsPage(
 }
 
 @Composable
-private fun PageDots(pagerState: PagerState, modifier: Modifier) {
-    Column(
-        modifier = modifier.padding(end = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+private fun PillIconButton(iconRes: Int, contentDescription: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(width = 68.dp, height = 48.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(onClickLabel = contentDescription, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        for (page in 0 until 3) {
-            val selected = pagerState.currentPage == page
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(if (selected) 10.dp else 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (selected) Color.White else Color.White.copy(alpha = 0.4f))
-            )
-        }
-    }
-}
-
-@Composable
-private fun VolumeIndicator(fraction: Float, round: Boolean) {
-    val filled = fraction.coerceIn(0f, 1f)
-    Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
-        val stroke = 6.dp.toPx()
-        if (round) {
-            val arcSize = Size(size.width - stroke, size.height - stroke)
-            val topLeft = Offset(stroke / 2f, stroke / 2f)
-            val bottom = 180f - VOLUME_ARC_SWEEP / 2f
-            val sweep = VOLUME_ARC_SWEEP * filled
-            val gap = if (sweep > 0f && sweep < VOLUME_ARC_SWEEP) VOLUME_ARC_GAP else 0f
-            if (sweep + gap < VOLUME_ARC_SWEEP) {
-                drawArc(
-                    color = Color.White.copy(alpha = 0.3f),
-                    startAngle = bottom + sweep + gap,
-                    sweepAngle = VOLUME_ARC_SWEEP - sweep - gap,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSize,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
-                )
-            }
-            if (sweep > 0f) {
-                drawArc(
-                    color = Color.White,
-                    startAngle = bottom,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSize,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
-                )
-            }
-        } else {
-            val length = size.height * 0.3f
-            val x = stroke / 2f
-            val top = (size.height - length) / 2f
-            val bottom = top + length
-            val fillTop = bottom - length * filled
-            drawLine(
-                color = Color.White.copy(alpha = 0.3f),
-                start = Offset(x, top),
-                end = Offset(x, bottom),
-                strokeWidth = stroke,
-                cap = StrokeCap.Round
-            )
-            if (filled > 0f) {
-                drawLine(
-                    color = Color.White,
-                    start = Offset(x, bottom),
-                    end = Offset(x, fillTop),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
-            }
-        }
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }

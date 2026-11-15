@@ -64,7 +64,9 @@ import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.sync.PlusPlayerRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 val PlusAccent = Color(0xFFE7E3A0)
@@ -89,12 +91,19 @@ fun PollWhileStarted(paths: List<String>, intervalMillis: Long = 1000L) {
 }
 
 @Composable
-fun rememberClockText(): String {
+fun rememberClockText(withAmPm: Boolean = true): String {
     val context = LocalContext.current
-    var text by remember { mutableStateOf(DateFormat.getTimeFormat(context).format(Date())) }
-    LaunchedEffect(Unit) {
+    val format = remember(withAmPm) {
+        if (withAmPm) {
+            DateFormat.getTimeFormat(context)
+        } else {
+            SimpleDateFormat(if (DateFormat.is24HourFormat(context)) "H:mm" else "h:mm", Locale.getDefault())
+        }
+    }
+    var text by remember(format) { mutableStateOf(format.format(Date())) }
+    LaunchedEffect(format) {
         while (true) {
-            text = DateFormat.getTimeFormat(context).format(Date())
+            text = format.format(Date())
             delay(5_000)
         }
     }
@@ -167,12 +176,14 @@ fun EdgeMarqueeText(
         if (textWidth <= fitWidthPx) {
             Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
         } else {
-            val extra = with(density) { (fullWidthPx - textWidth).coerceAtLeast(0f).toDp() } + 1.dp
+            val leadPx = with(density) { fitPadding.toPx() }
+            val extra = with(density) { (fullWidthPx - leadPx - textWidth).coerceAtLeast(0f).toDp() } + 1.dp
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .basicMarquee(initialDelayMillis = 1500, spacing = MarqueeSpacing(maxWidth / 4))
+                    .basicMarquee(initialDelayMillis = 1500, spacing = MarqueeSpacing(maxWidth / 6))
             ) {
+                Spacer(modifier = Modifier.width(fitPadding))
                 Text(text = text, color = color, style = style, maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.width(extra))
             }

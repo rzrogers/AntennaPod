@@ -16,7 +16,6 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import de.danoeh.antennapod.ui.common.R as CommonR
 
@@ -70,6 +69,6 @@ fun ListScaffold(
                 else -> item { Text(stringResource(CommonR.string.wearos_no_items)) }
             }
         }
-        ScrollIndicator(state = scrollState, modifier = Modifier.align(Alignment.CenterEnd))
+        PlusScrollIndicator(listState = scrollState)
     }
 }

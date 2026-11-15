@@ -9,6 +9,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import de.danoeh.antennapod.wearos.composable.PlusChip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,7 +47,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScrollIndicator
+import de.danoeh.antennapod.wearos.composable.PlusScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import androidx.wear.input.RemoteInputIntentHelper
@@ -162,11 +178,7 @@ fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: ()
                 if (found.feeds.isNotEmpty()) {
                     item { SectionLabel(text = stringResource(CommonR.string.plus_wear_shows)) }
                     items(found.feeds) { feed ->
-                        ListItem(
-                            text = feed.title,
-                            iconRes = CommonR.drawable.ic_subscriptions_black,
-                            onClick = { onOpenFeed(feed.id) }
-                        )
+                        FeedRowItem(feed = feed, onClick = { onOpenFeed(feed.id) })
                     }
                 }
                 if (found.episodes.isNotEmpty()) {
@@ -182,6 +194,44 @@ fun SearchScreen(initialQuery: String?, onOpenFeed: (Long) -> Unit, onPlayed: ()
                 }
             }
         }
-        ScrollIndicator(state = scrollState, modifier = Modifier.align(Alignment.CenterEnd))
+        PlusScrollIndicator(listState = scrollState)
+    }
+}
+
+@Composable
+private fun FeedRowItem(feed: PlusWear.FeedRow, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val art by PlusPlayerRepository.art.collectAsState()
+    LaunchedEffect(feed.id) {
+        PlusPlayerRepository.requestFeedArt(context, feed.id, PlusPlayerRepository.ART_SMALL)
+    }
+    val bitmap = art[PlusPlayerRepository.feedArtKey(feed.id, PlusPlayerRepository.ART_SMALL)]
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, topEnd = 28.dp, bottomEnd = 28.dp))
+            .background(PlusChip)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(56.dp).background(Color(0xFF3D4047))) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        Text(
+            text = feed.title,
+            modifier = Modifier.padding(start = 10.dp, end = 14.dp),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

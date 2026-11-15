@@ -16,7 +16,7 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScrollIndicator
+import de.danoeh.antennapod.wearos.composable.PlusScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.dynamicColorScheme
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear
@@ -75,6 +75,6 @@ fun LibraryScreen(onOpen: (String) -> Unit) {
                 )
             }
         }
-        ScrollIndicator(state = scrollState, modifier = Modifier.align(Alignment.CenterEnd))
+        PlusScrollIndicator(listState = scrollState)
     }
 }
