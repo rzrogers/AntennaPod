@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
@@ -24,12 +26,18 @@ fun ListItem(
     @DrawableRes iconRes: Int? = null,
     secondaryText: String? = null,
     enabled: Boolean = true,
+    selected: Boolean = false,
     onClick: () -> Unit
 ) {
     FilledTonalButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        enabled = enabled
+        enabled = enabled,
+        colors = if (selected) {
+            ButtonDefaults.filledTonalButtonColors(containerColor = PlusBlue, contentColor = Color.White)
+        } else {
+            ButtonDefaults.filledTonalButtonColors()
+        }
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

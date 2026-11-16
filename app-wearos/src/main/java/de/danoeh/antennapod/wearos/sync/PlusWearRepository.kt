@@ -24,6 +24,9 @@ object PlusWearRepository {
         if (!PlusWear.isPlusPath(path)) {
             return false
         }
+        if (WatchPlayback.handleReply(path, data)) {
+            return true
+        }
         if (PlusPlayerRepository.handle(path, data)) {
             return true
         }

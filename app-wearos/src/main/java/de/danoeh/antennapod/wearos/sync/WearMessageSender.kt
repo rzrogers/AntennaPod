@@ -9,6 +9,13 @@ object WearMessageSender {
     private const val TAG = "WearMessageSender"
 
     suspend fun send(context: Context, path: String) {
+        if (WatchPlayback.intercept(context, path)) {
+            return
+        }
+        sendToPhone(context, path)
+    }
+
+    suspend fun sendToPhone(context: Context, path: String) {
         try {
             val nodes = Wearable.getNodeClient(context).connectedNodes.await()
             val node = nodes.firstOrNull() ?: run {

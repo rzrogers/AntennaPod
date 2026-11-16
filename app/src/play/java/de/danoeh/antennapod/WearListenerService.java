@@ -1,6 +1,7 @@
 package de.danoeh.antennapod;
 
 import android.util.Log;
+import com.google.android.gms.wearable.ChannelClient;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
@@ -70,6 +71,11 @@ public class WearListenerService extends WearableListenerService {
                 .subscribe(
                         () -> { },
                         throwable -> Log.e(TAG, "Failed to handle wearable message: " + path, throwable));
+    }
+
+    @Override
+    public void onChannelOpened(ChannelClient.Channel channel) {
+        PlusWearWatch.onChannelOpened(this, channel);
     }
 
     private void handleMessage(String path, String sourceNodeId) {

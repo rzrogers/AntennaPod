@@ -34,6 +34,17 @@ public final class PlusWear {
     public static final String EPISODES_FEED_PREFIX = EPISODES_PREFIX + "feed/";
     public static final String SEARCH_PREFIX = "/plus_search/";
     public static final String SEARCH_RESULTS = "/plus_search_results";
+    public static final String WATCH_PREPARE_PREFIX = "/plus_watch_prepare/";
+    public static final String WATCH_PREPARE_PLAYLIST_PREFIX = "/plus_watch_prepare_playlist/";
+    public static final String WATCH_FINISHED_PREFIX = "/plus_watch_finished/";
+    public static final String WATCH_MEDIA = "/plus_watch_media";
+    public static final String WATCH_TAKE_PREFIX = "/plus_watch_take/";
+    public static final String WATCH_TAKEN = "/plus_watch_taken";
+    public static final String WATCH_GIVE_PREFIX = "/plus_watch_give/";
+    public static final String WATCH_POSITION_PREFIX = "/plus_watch_position/";
+    public static final String WATCH_PHONE_PLAYING = "/plus_watch_phone_playing";
+    public static final String WATCH_PING = "/plus_watch_ping";
+    public static final String WATCH_FILE_CHANNEL_PREFIX = "/plus_watch_file/";
     public static final int OUTPUT_SPEAKER = 0;
     public static final int OUTPUT_WIRED = 1;
     public static final int OUTPUT_BLUETOOTH = 2;
@@ -63,6 +74,15 @@ public final class PlusWear {
     private static final String KEY_VOLUME_MAX = "volume_max";
     private static final String KEY_FEEDS = "feeds";
     private static final String KEY_EPISODES = "episodes";
+    private static final String KEY_MEDIA_ID = "media_id";
+    private static final String KEY_URL = "url";
+    private static final String KEY_SIZE = "size";
+    private static final String KEY_HAS_FILE = "has_file";
+    private static final String KEY_HOST = "host";
+    private static final String KEY_PORT = "port";
+    private static final String KEY_TOKEN = "token";
+    private static final String KEY_SKIP_INTRO = "skip_intro";
+    private static final String KEY_SKIP_ENDING = "skip_ending";
 
     private PlusWear() {
     }
@@ -93,6 +113,34 @@ public final class PlusWear {
 
     public static String searchPath(@NonNull String query) {
         return SEARCH_PREFIX + query;
+    }
+
+    public static String watchPreparePath(long itemId) {
+        return WATCH_PREPARE_PREFIX + itemId;
+    }
+
+    public static String watchPreparePlaylistPath(long playlistId) {
+        return WATCH_PREPARE_PLAYLIST_PREFIX + playlistId;
+    }
+
+    public static String watchFinishedPath(long itemId) {
+        return WATCH_FINISHED_PREFIX + itemId;
+    }
+
+    public static String watchTakePath(long itemId) {
+        return WATCH_TAKE_PREFIX + itemId;
+    }
+
+    public static String watchGivePath(long itemId, int position, boolean play) {
+        return WATCH_GIVE_PREFIX + itemId + "/" + position + "/" + (play ? 1 : 0);
+    }
+
+    public static String watchPositionPath(long itemId, int position) {
+        return WATCH_POSITION_PREFIX + itemId + "/" + position;
+    }
+
+    public static String watchFileChannelPath(long mediaId) {
+        return WATCH_FILE_CHANNEL_PREFIX + mediaId;
     }
 
     public static boolean isPlusPath(@NonNull String path) {
@@ -211,6 +259,133 @@ public final class PlusWear {
         public PlayerState withVolume(int newVolume, int newVolumeMax) {
             return new PlayerState(itemId, title, feedTitle, position, duration, playing, speed, speeds,
                     sleepMillis, sleepEpisode, outputType, outputName, newVolume, newVolumeMax);
+        }
+    }
+
+    public static final class WatchMedia {
+        public final long itemId;
+        public final long mediaId;
+        @NonNull
+        public final String title;
+        @NonNull
+        public final String feedTitle;
+        public final int duration;
+        public final int position;
+        public final float speed;
+        @NonNull
+        public final String url;
+        public final long size;
+        public final boolean hasFile;
+        @NonNull
+        public final String host;
+        public final int port;
+        @NonNull
+        public final String token;
+        public final int skipIntro;
+        public final int skipEnding;
+
+        public WatchMedia(long itemId, long mediaId, @NonNull String title, @NonNull String feedTitle, int duration,
+                          int position, float speed, @NonNull String url, long size, boolean hasFile,
+                          @NonNull String host, int port, @NonNull String token, int skipIntro, int skipEnding) {
+            this.itemId = itemId;
+            this.mediaId = mediaId;
+            this.title = title;
+            this.feedTitle = feedTitle;
+            this.duration = duration;
+            this.position = position;
+            this.speed = speed;
+            this.url = url;
+            this.size = size;
+            this.hasFile = hasFile;
+            this.host = host;
+            this.port = port;
+            this.token = token;
+            this.skipIntro = skipIntro;
+            this.skipEnding = skipEnding;
+        }
+    }
+
+    public static final class WatchTaken {
+        public final long itemId;
+        public final int position;
+        public final float speed;
+
+        public WatchTaken(long itemId, int position, float speed) {
+            this.itemId = itemId;
+            this.position = position;
+            this.speed = speed;
+        }
+    }
+
+    @NonNull
+    public static byte[] watchMediaToBytes(@Nullable WatchMedia media) {
+        if (media == null) {
+            return new byte[0];
+        }
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put(KEY_ID, media.itemId);
+            obj.put(KEY_MEDIA_ID, media.mediaId);
+            obj.put(KEY_TITLE, media.title);
+            obj.put(KEY_FEED_TITLE, media.feedTitle);
+            obj.put(KEY_DURATION, media.duration);
+            obj.put(KEY_POSITION, media.position);
+            obj.put(KEY_SPEED, (double) media.speed);
+            obj.put(KEY_URL, media.url);
+            obj.put(KEY_SIZE, media.size);
+            obj.put(KEY_HAS_FILE, media.hasFile);
+            obj.put(KEY_HOST, media.host);
+            obj.put(KEY_PORT, media.port);
+            obj.put(KEY_TOKEN, media.token);
+            obj.put(KEY_SKIP_INTRO, media.skipIntro);
+            obj.put(KEY_SKIP_ENDING, media.skipEnding);
+            return obj.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (JSONException e) {
+            return new byte[0];
+        }
+    }
+
+    @Nullable
+    public static WatchMedia watchMediaFromBytes(@NonNull byte[] data) {
+        if (data.length == 0) {
+            return null;
+        }
+        try {
+            JSONObject obj = new JSONObject(new String(data, StandardCharsets.UTF_8));
+            return new WatchMedia(obj.optLong(KEY_ID, 0), obj.optLong(KEY_MEDIA_ID, 0), obj.optString(KEY_TITLE, ""),
+                    obj.optString(KEY_FEED_TITLE, ""), obj.optInt(KEY_DURATION, 0), obj.optInt(KEY_POSITION, 0),
+                    (float) obj.optDouble(KEY_SPEED, 1.0), obj.optString(KEY_URL, ""), obj.optLong(KEY_SIZE, 0),
+                    obj.optBoolean(KEY_HAS_FILE, false), obj.optString(KEY_HOST, ""), obj.optInt(KEY_PORT, 0),
+                    obj.optString(KEY_TOKEN, ""), obj.optInt(KEY_SKIP_INTRO, 0), obj.optInt(KEY_SKIP_ENDING, 0));
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    @NonNull
+    public static byte[] watchTakenToBytes(@NonNull WatchTaken taken) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put(KEY_ID, taken.itemId);
+            obj.put(KEY_POSITION, taken.position);
+            obj.put(KEY_SPEED, (double) taken.speed);
+            return obj.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (JSONException e) {
+            return new byte[0];
+        }
+    }
+
+    @Nullable
+    public static WatchTaken watchTakenFromBytes(@NonNull byte[] data) {
+        if (data.length == 0) {
+            return null;
+        }
+        try {
+            JSONObject obj = new JSONObject(new String(data, StandardCharsets.UTF_8));
+            return new WatchTaken(obj.optLong(KEY_ID, 0), obj.optInt(KEY_POSITION, 0),
+                    (float) obj.optDouble(KEY_SPEED, 1.0));
+        } catch (JSONException e) {
+            return null;
         }
     }
 

@@ -25,6 +25,9 @@ final class PlusWearHandler {
         if (!PlusWear.isPlusPath(path)) {
             return false;
         }
+        if (PlusWearWatch.handle(context, path, sourceNodeId)) {
+            return true;
+        }
         if (PlusWearPlayer.handle(context, path, sourceNodeId)) {
             return true;
         }

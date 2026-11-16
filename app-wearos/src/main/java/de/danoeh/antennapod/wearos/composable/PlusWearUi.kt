@@ -71,6 +71,7 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 
 val PlusAccent = Color(0xFFE7E3A0)
+val PlusBlue = Color(0xFF0078C2)
 val PlusHighlight = Color(0xFF0B3A5C)
 val PlusChip = Color(0xFF2B2D31)
 val PlusSecondaryText = Color(0xFFB4B9C4)

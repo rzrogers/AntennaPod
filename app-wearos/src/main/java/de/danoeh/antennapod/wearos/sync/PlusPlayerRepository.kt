@@ -47,9 +47,34 @@ object PlusPlayerRepository {
     private var pendingPlaying: Boolean? = null
     private var pendingUntil = 0L
 
+    @Volatile
+    private var volumeResync = false
+
+    fun setLocal(state: PlusWear.PlayerState) {
+        _player.value = applyPending(state)
+    }
+
+    fun setVolume(level: Int, max: Int) {
+        _volume.value = VolumeLevel(level, max, SystemClock.elapsedRealtime())
+    }
+
+    fun requestVolumeResync() {
+        volumeResync = true
+    }
+
     fun handle(path: String, data: ByteArray): Boolean {
+        if (path == PlusWear.PLAYER && WatchPlayback.active.value) {
+            return true
+        }
         when {
-            path == PlusWear.PLAYER -> _player.value = applyPending(PlusWear.playerStateFromBytes(data))
+            path == PlusWear.PLAYER -> {
+                val state = PlusWear.playerStateFromBytes(data)
+                _player.value = applyPending(state)
+                if (volumeResync && state != null && state.volumeMax > 0) {
+                    volumeResync = false
+                    setVolume(state.volume, state.volumeMax)
+                }
+            }
             path == PlusWear.QUEUE -> _queue.value = PlusWear.episodeRowsFromBytes(data)
             path.startsWith(PlusWear.EPISODES_PREFIX) -> {
                 val rows = PlusWear.episodeRowsFromBytes(data)

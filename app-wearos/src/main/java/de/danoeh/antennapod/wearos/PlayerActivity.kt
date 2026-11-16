@@ -83,6 +83,7 @@ import de.danoeh.antennapod.ui.common.R as CommonR
 import de.danoeh.antennapod.wearos.composable.ListItem
 import de.danoeh.antennapod.wearos.composable.EdgeMarqueeText
 import de.danoeh.antennapod.wearos.composable.PlusAccent
+import de.danoeh.antennapod.wearos.composable.PlusBlue
 import de.danoeh.antennapod.wearos.composable.PlusPagerIndicator
 import de.danoeh.antennapod.wearos.composable.PlusVolumeIndicator
 import de.danoeh.antennapod.wearos.composable.PollWhileStarted
@@ -94,6 +95,7 @@ import de.danoeh.antennapod.wearos.composable.formatSpeed
 import de.danoeh.antennapod.wearos.composable.isRoundScreen
 import de.danoeh.antennapod.wearos.composable.rememberClockText
 import de.danoeh.antennapod.wearos.sync.PlusPlayerRepository
+import de.danoeh.antennapod.wearos.sync.WatchPlayback
 import de.danoeh.antennapod.wearos.sync.PlusWearRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
 import kotlin.math.abs
@@ -147,6 +149,8 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     val jumpSeconds by PlusWearRepository.jumpSeconds.collectAsState()
     val playlists by PlusWearRepository.playlists.collectAsState()
     val volume by PlusPlayerRepository.volume.collectAsState()
+    val watchActive by WatchPlayback.active.collectAsState()
+    val watchOutput by WatchPlayback.output.collectAsState()
     val pagerState = rememberPagerState(initialPage = PAGE_PLAYER, pageCount = { 3 })
     val listState = rememberScalingLazyListState()
     val focusRequester = remember { FocusRequester() }
@@ -311,6 +315,12 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
                     playing = playing,
                     speed = current?.speed ?: 1f,
                     jumpSeconds = jumpSeconds,
+                    watchOutputLabel = when {
+                        !watchActive -> null
+                        watchOutput == WatchPlayback.OUTPUT_EARBUDS ->
+                            stringResource(CommonR.string.plus_wear_watch_earbuds)
+                        else -> stringResource(CommonR.string.plus_wear_watch_speaker)
+                    },
                     onPlayPause = onPlayPause,
                     onJumpBack = { scope.launch { WearMessageSender.send(context, WearDataPaths.SKIP_BACKWARD) } },
                     onJumpForward = { scope.launch { WearMessageSender.send(context, WearDataPaths.SKIP_FORWARD) } },
@@ -414,6 +424,7 @@ private fun MainPage(
     playing: Boolean,
     speed: Float,
     jumpSeconds: IntArray,
+    watchOutputLabel: String?,
     onPlayPause: () -> Unit,
     onJumpBack: () -> Unit,
     onJumpForward: () -> Unit,
@@ -476,9 +487,14 @@ private fun MainPage(
             ) {
                 RoundIconButton(
                     size = unit * 34,
-                    iconRes = CommonR.drawable.ic_phone_black,
+                    iconRes = if (watchOutputLabel != null) {
+                        R.drawable.ic_plus_watch
+                    } else {
+                        CommonR.drawable.ic_phone_black
+                    },
                     contentDescription = stringResource(CommonR.string.plus_wear_output),
                     iconSize = unit * 18,
+                    background = if (watchOutputLabel != null) PlusBlue else Color.White.copy(alpha = 0.14f),
                     onClick = onOutput
                 )
                 RoundIconButton(
@@ -503,9 +519,20 @@ private fun MainPage(
                     )
                 }
             }
+            if (watchOutputLabel != null) {
+                Text(
+                    text = watchOutputLabel,
+                    color = PlusWatchLabel,
+                    fontSize = (9 * textScale).sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
+
+private val PlusWatchLabel = Color(0xFF4DA8E0)
 
 @Composable
 private fun ListsPage(

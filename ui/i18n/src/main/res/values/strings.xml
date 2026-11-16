@@ -1176,4 +1176,14 @@
     <string name="plus_wear_sleep_ends_episode" tools:ignore="UnusedResources">Stops at the end of this episode</string>
     <string name="plus_wear_sleep_stops_in" tools:ignore="UnusedResources">Stops in %1$s</string>
     <string name="plus_wear_output" tools:ignore="UnusedResources">Output</string>
+    <string name="plus_wear_watch_speaker" tools:ignore="UnusedResources">Watch speaker</string>
+    <string name="plus_wear_watch_earbuds" tools:ignore="UnusedResources">Watch earbuds</string>
+    <string name="plus_wear_moving_title" tools:ignore="UnusedResources">Moving to watch</string>
+    <string name="plus_wear_moving_getting" tools:ignore="UnusedResources">This episode isn\'t on the watch yet. Getting it now.</string>
+    <string name="plus_wear_moving_from_phone" tools:ignore="UnusedResources">%1$d%% · from phone</string>
+    <string name="plus_wear_moving_wifi" tools:ignore="UnusedResources">%1$d%% · over Wi-Fi</string>
+    <string name="plus_wear_moving_bluetooth" tools:ignore="UnusedResources">%1$d%% · over Bluetooth</string>
+    <string name="plus_wear_stay_on_phone" tools:ignore="UnusedResources">Stay on phone</string>
+    <string name="plus_wear_move_failed" tools:ignore="UnusedResources">Couldn\'t move to the watch</string>
+    <string name="plus_wear_connect_earbuds" tools:ignore="UnusedResources">Connect earbuds to the watch first</string>
 </resources>
