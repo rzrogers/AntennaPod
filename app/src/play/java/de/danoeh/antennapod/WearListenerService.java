@@ -66,6 +66,9 @@ public class WearListenerService extends WearableListenerService {
         String path = event.getPath();
         String sourceNodeId = event.getSourceNodeId();
         Log.d(TAG, "Message received: " + path + " from " + sourceNodeId);
+        if (PlusWearWatch.handleData(this, path, sourceNodeId, event.getData())) {
+            return;
+        }
         Completable.fromAction(() -> handleMessage(path, sourceNodeId))
                 .subscribeOn(Schedulers.computation())
                 .subscribe(

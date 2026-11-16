@@ -58,6 +58,14 @@ object PlusPlayerRepository {
         _volume.value = VolumeLevel(level, max, SystemClock.elapsedRealtime())
     }
 
+    fun setQueue(rows: List<PlusWear.EpisodeRow>) {
+        _queue.value = rows
+    }
+
+    fun setEpisodes(path: String, rows: List<PlusWear.EpisodeRow>) {
+        _episodeLists.update { it + (path to rows) }
+    }
+
     fun requestVolumeResync() {
         volumeResync = true
     }

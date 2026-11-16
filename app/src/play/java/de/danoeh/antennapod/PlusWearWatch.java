@@ -12,8 +12,8 @@ import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.Playlist;
 import de.danoeh.antennapod.net.sync.wearinterface.PlusWear;
 import de.danoeh.antennapod.playback.base.MediaItemAdapter;
+import de.danoeh.antennapod.playback.service.Media3PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackController;
-import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackServiceStarter;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
@@ -23,13 +23,20 @@ import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 final class PlusWearWatch {
     private static final String TAG = "PlusWearWatch";
+    private static final int MAX_PLAN_ITEMS = 150;
 
     private PlusWearWatch() {
     }
@@ -55,6 +62,12 @@ final class PlusWearWatch {
                 if (parts.length == 2) {
                     position(context, nodeId, Long.parseLong(parts[0]), Integer.parseInt(parts[1]));
                 }
+            } else if (path.startsWith(PlusWear.WATCH_OFFER_PREFIX)) {
+                sendMedia(context, nodeId, mediaOfItem(
+                        Long.parseLong(path.substring(PlusWear.WATCH_OFFER_PREFIX.length()))),
+                        PlusWear.WATCH_OFFER, true);
+            } else if (PlusWear.WATCH_PLANS.equals(path)) {
+                sendPlans(context, nodeId);
             } else if (PlusWear.WATCH_PING.equals(path)) {
                 Log.d(TAG, "Watch is copying");
             } else {
@@ -64,6 +77,94 @@ final class PlusWearWatch {
             Log.w(TAG, "Ignoring malformed watch path: " + path, e);
         }
         return true;
+    }
+
+    static boolean handleData(Context context, String path, String nodeId, byte[] data) {
+        if (!PlusWear.WATCH_RECORD.equals(path)) {
+            return false;
+        }
+        new Thread(() -> {
+            applyRecord(context, data);
+            reply(context, nodeId, PlusWear.WATCH_RECORD_DONE, new byte[0]);
+        }, TAG).start();
+        return true;
+    }
+
+    private static void applyRecord(Context context, byte[] data) {
+        if (data == null || data.length == 0) {
+            return;
+        }
+        try {
+            JSONArray events = new JSONObject(new String(data, StandardCharsets.UTF_8)).optJSONArray("events");
+            if (events == null) {
+                return;
+            }
+            for (int i = 0; i < events.length(); i++) {
+                JSONObject event = events.optJSONObject(i);
+                if (event == null) {
+                    continue;
+                }
+                String type = event.optString("type", "");
+                long id = event.optLong("id", 0);
+                long time = event.optLong("time", 0);
+                if ("playlist".equals(type)) {
+                    Playlist loaded = PlaylistDB.getLoadedPlaylist();
+                    if (loaded == null || loaded.getId() != id) {
+                        try {
+                            PlaylistDB.playPlaylist(id).get();
+                        } catch (Exception e) {
+                            Log.w(TAG, "Could not load playlist " + id, e);
+                        }
+                    }
+                } else if ("finished".equals(type)) {
+                    FeedMedia media = id > 0 ? mediaOfItem(id) : null;
+                    if (media != null && media.getItem() != null) {
+                        markFinished(context, media);
+                    }
+                } else if ("position".equals(type)) {
+                    FeedMedia media = id > 0 ? mediaOfItem(id) : null;
+                    if (media != null && time > media.getLastPlayedTimeStatistics()) {
+                        applyPosition(context, null, media, event.optInt("position", 0));
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            Log.w(TAG, "Ignoring malformed watch record", e);
+        }
+    }
+
+    private static void sendPlans(Context context, String nodeId) {
+        JSONArray ids = new JSONArray();
+        for (Playlist playlist : PlaylistDB.getPlaylists()) {
+            List<PlusWear.WatchMedia> items = new ArrayList<>();
+            for (FeedItem item : PlaylistDB.getItems(playlist.getId())) {
+                if (items.size() >= MAX_PLAN_ITEMS) {
+                    break;
+                }
+                PlusWear.WatchMedia media = describe(context, item.getMedia(), false);
+                if (media != null) {
+                    items.add(media);
+                }
+            }
+            ids.put(playlist.getId());
+            reply(context, nodeId, PlusWear.WATCH_PLAN, PlusWear.watchPlanToBytes(
+                    new PlusWear.WatchPlan(playlist.getId(), playlist.isLoaded(), items)));
+        }
+        try {
+            JSONArray speeds = new JSONArray();
+            for (float speed : UserPreferences.getPlaybackSpeedArray()) {
+                speeds.put((double) speed);
+            }
+            JSONObject done = new JSONObject();
+            done.put("ids", ids);
+            done.put("back", UserPreferences.getRewindSecs());
+            done.put("forward", UserPreferences.getFastForwardSecs());
+            done.put("speeds", speeds);
+            done.put("follow", UserPreferences.isFollowQueue());
+            reply(context, nodeId, PlusWear.WATCH_PLANS_DONE, done.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (JSONException e) {
+            Log.w(TAG, "Could not describe settings for the watch", e);
+        }
     }
 
     static void onChannelOpened(Context context, ChannelClient.Channel channel) {
@@ -138,9 +239,16 @@ final class PlusWearWatch {
     }
 
     private static void sendMedia(Context context, String nodeId, FeedMedia media) {
+        sendMedia(context, nodeId, media, PlusWear.WATCH_MEDIA, true);
+    }
+
+    private static void sendMedia(Context context, String nodeId, FeedMedia media, String path, boolean offer) {
+        reply(context, nodeId, path, PlusWear.watchMediaToBytes(describe(context, media, offer)));
+    }
+
+    private static PlusWear.WatchMedia describe(Context context, FeedMedia media, boolean offer) {
         if (media == null || media.getItem() == null) {
-            reply(context, nodeId, PlusWear.WATCH_MEDIA, PlusWear.watchMediaToBytes(null));
-            return;
+            return null;
         }
         FeedItem item = media.getItem();
         String title = item.getTitle() != null ? item.getTitle() : "";
@@ -160,19 +268,19 @@ final class PlusWearWatch {
         String host = "";
         int port = 0;
         String token = "";
-        if (file != null) {
-            PlusWearFileServer.Offer offer = PlusWearFileServer.offer(context, file);
-            if (offer != null) {
-                host = offer.host;
-                port = offer.port;
-                token = offer.token;
+        if (file != null && offer) {
+            PlusWearFileServer.Offer served = PlusWearFileServer.offer(context, file);
+            if (served != null) {
+                host = served.host;
+                port = served.port;
+                token = served.token;
             }
         }
         String url = media.getDownloadUrl() != null ? media.getDownloadUrl() : "";
-        reply(context, nodeId, PlusWear.WATCH_MEDIA, PlusWear.watchMediaToBytes(new PlusWear.WatchMedia(
+        return new PlusWear.WatchMedia(
                 item.getId(), media.getId(), title, feedTitle, media.getDuration(), media.getPosition(),
                 PlaybackSpeedUtils.getCurrentPlaybackSpeed(media), url, file != null ? file.length() : 0,
-                file != null, host, port, token, skipIntro, skipEnding)));
+                file != null, host, port, token, skipIntro, skipEnding);
     }
 
     private static boolean isCurrent(MediaController controller, FeedMedia media) {
@@ -189,7 +297,7 @@ final class PlusWearWatch {
         long id = media.getItem().getId();
         int savedPosition = media.getPosition();
         float savedSpeed = PlaybackSpeedUtils.getCurrentPlaybackSpeed(media);
-        if (!PlaybackService.isRunning) {
+        if (!Media3PlaybackService.plusAlive) {
             reply(context, nodeId, PlusWear.WATCH_TAKEN, PlusWear.watchTakenToBytes(
                     new PlusWear.WatchTaken(id, savedPosition, savedSpeed)));
             return;
@@ -213,6 +321,7 @@ final class PlusWearWatch {
 
     private static void savePosition(FeedMedia media, int position) {
         media.setPosition(position);
+        media.setLastPlayedTimeStatistics(System.currentTimeMillis());
         try {
             DBWriter.setFeedMediaPlaybackInformation(media).get();
         } catch (Exception e) {
@@ -226,7 +335,7 @@ final class PlusWearWatch {
             return;
         }
         savePosition(media, position);
-        if (!play && !PlaybackService.isRunning) {
+        if (!play && !Media3PlaybackService.plusAlive) {
             return;
         }
         PlaybackController.bindToMedia3Service(context, controller -> {
@@ -246,29 +355,29 @@ final class PlusWearWatch {
         if (media == null) {
             return;
         }
-        if (!PlaybackService.isRunning) {
+        applyPosition(context, nodeId, media, position);
+    }
+
+    private static void applyPosition(Context context, String nodeId, FeedMedia media, int position) {
+        if (!Media3PlaybackService.plusAlive) {
             savePosition(media, position);
             return;
         }
         PlaybackController.bindToMedia3Service(context, controller -> {
             if (controller.isPlaying()) {
-                reply(context, nodeId, PlusWear.WATCH_PHONE_PLAYING, new byte[0]);
+                if (nodeId != null) {
+                    reply(context, nodeId, PlusWear.WATCH_PHONE_PLAYING, new byte[0]);
+                }
                 return;
             }
-            boolean current = isCurrent(controller, media);
-            if (current) {
+            if (isCurrent(controller, media)) {
                 controller.seekTo(position);
             }
             new Thread(() -> savePosition(media, position), TAG).start();
         });
     }
 
-    private static void finished(Context context, String nodeId, long itemId) {
-        FeedMedia media = mediaOfItem(itemId);
-        if (itemId <= 0 || media == null || media.getItem() == null) {
-            sendMedia(context, nodeId, null);
-            return;
-        }
+    private static FeedItem markFinished(Context context, FeedMedia media) {
         FeedItem item = media.getItem();
         List<FeedItem> queue = DBReader.getQueue();
         FeedItem next = null;
@@ -292,6 +401,16 @@ final class PlusWearWatch {
             }
         }
         DBWriter.addItemToPlaybackHistory(media);
+        return next;
+    }
+
+    private static void finished(Context context, String nodeId, long itemId) {
+        FeedMedia media = mediaOfItem(itemId);
+        if (itemId <= 0 || media == null || media.getItem() == null) {
+            sendMedia(context, nodeId, null);
+            return;
+        }
+        FeedItem next = markFinished(context, media);
         if (next == null || next.getMedia() == null || !UserPreferences.isFollowQueue()) {
             sendMedia(context, nodeId, null);
             return;

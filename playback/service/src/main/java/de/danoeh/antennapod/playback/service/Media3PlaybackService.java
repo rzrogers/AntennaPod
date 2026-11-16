@@ -90,6 +90,7 @@ import java.util.concurrent.TimeUnit;
 public class Media3PlaybackService extends MediaLibraryService {
     private static final String TAG = "M3PlaybackService";
     private static final long POSITION_SAVE_INTERVAL_MS = 5000;
+    public static volatile boolean plusAlive = false;
     private ExoPlayer exoPlayer;
     private Player player;
     private MediaLibrarySession mediaSession;
@@ -117,6 +118,7 @@ public class Media3PlaybackService extends MediaLibraryService {
     @Override
     public void onCreate() {
         super.onCreate();
+        plusAlive = true;
         EventBus.getDefault().register(this);
         DefaultMediaNotificationProvider notificationProvider = new DefaultMediaNotificationProvider(this,
                 session -> R.id.notification_playing,
@@ -489,6 +491,7 @@ public class Media3PlaybackService extends MediaLibraryService {
     @UnstableApi
     @Override
     public void onDestroy() {
+        plusAlive = false;
         PlaybackService.isRunning = false;
         UserPreferences.unregisterListener(jumpSecsListener);
         cancelPositionObserver();

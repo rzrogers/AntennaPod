@@ -19,10 +19,13 @@ import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -33,7 +36,7 @@ object WatchFiles {
     const val SOURCE_WIFI = 2
     const val SOURCE_BLUETOOTH = 3
     private const val TAG = "WatchFiles"
-    private const val KEEP_FILES = 3
+    const val MIN_FREE_BYTES = 2L * 1024 * 1024 * 1024
     private const val PING_MILLIS = 3_000L
     private const val WIFI_WAIT_MILLIS = 12_000
     private const val MAX_REDIRECTS = 6
@@ -58,17 +61,53 @@ object WatchFiles {
 
     fun has(context: Context, media: PlusWear.WatchMedia): Boolean {
         val target = fileFor(context, media.mediaId)
-        return target.isFile && target.length() > 0 && (media.size <= 0 || target.length() == media.size)
+        return target.isFile && target.length() > 0
     }
+
+    fun usedBytes(context: Context): Long = directory(context).listFiles()?.sumOf { it.length() } ?: 0L
+
+    fun freeBytes(context: Context): Long = directory(context).usableSpace
+
+    fun totalBytes(context: Context): Long = directory(context).totalSpace
+
+    fun deleteFile(context: Context, mediaId: Long) {
+        fileFor(context, mediaId).delete()
+    }
+
+    fun deleteExcept(context: Context, keepMediaIds: Set<Long>) {
+        directory(context).listFiles()?.forEach { file ->
+            val id = file.name.substringBefore('.').toLongOrNull()
+            if (file.name.endsWith(".audio") && (id == null || id !in keepMediaIds)) {
+                file.delete()
+            }
+        }
+    }
+
+    @Volatile
+    var background: Job? = null
+    private val fetchLock = Mutex()
 
     suspend fun fetch(
         context: Context,
         media: PlusWear.WatchMedia,
+        allowCellular: Boolean = false,
+        priority: Boolean = true,
+        onProgress: (Float, Int) -> Unit
+    ): File? {
+        if (priority) {
+            background?.cancel()
+        }
+        return fetchLock.withLock { fetchLocked(context, media, allowCellular, onProgress) }
+    }
+
+    private suspend fun fetchLocked(
+        context: Context,
+        media: PlusWear.WatchMedia,
+        allowCellular: Boolean,
         onProgress: (Float, Int) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         val target = fileFor(context, media.mediaId)
         if (has(context, media)) {
-            target.setLastModified(System.currentTimeMillis())
             return@withContext target
         }
         val part = File(target.path + ".part")
@@ -80,7 +119,7 @@ object WatchFiles {
         }
         try {
             var done = false
-            val wifi = acquireWifi(context)
+            val wifi = acquireNetwork(context, NetworkCapabilities.TRANSPORT_WIFI)
             if (wifi != null) {
                 try {
                     if (media.hasFile && media.port > 0 && media.host.isNotEmpty()) {
@@ -93,11 +132,20 @@ object WatchFiles {
                     wifi.release()
                 }
             }
-            if (!done && media.hasFile) {
+            if (!done && allowCellular && media.url.startsWith("http")) {
+                val cellular = acquireNetwork(context, NetworkCapabilities.TRANSPORT_CELLULAR)
+                if (cellular != null) {
+                    try {
+                        done = attempt { download(cellular.network, media, part, onProgress) }
+                    } finally {
+                        cellular.release()
+                    }
+                }
+            }
+            if (!done && media.hasFile && WearMessageSender.nearby.value) {
                 done = attempt { copyOverBluetooth(context, media, part, onProgress) }
             }
             if (done && part.renameTo(target)) {
-                trim(context, target)
                 target
             } else {
                 part.delete()
@@ -125,7 +173,7 @@ object WatchFiles {
         }
     }
 
-    private suspend fun acquireWifi(context: Context): WifiHold? {
+    private suspend fun acquireNetwork(context: Context, transport: Int): WifiHold? {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return null
         val found = CompletableDeferred<Network?>()
         val callback = object : ConnectivityManager.NetworkCallback() {
@@ -138,7 +186,7 @@ object WatchFiles {
             }
         }
         val request = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(transport)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         try {
@@ -255,13 +303,5 @@ object WatchFiles {
         } finally {
             client.close(channel)
         }
-    }
-
-    private fun trim(context: Context, keep: File) {
-        val files = directory(context).listFiles() ?: return
-        files.filter { it != keep }
-            .sortedByDescending { it.lastModified() }
-            .drop(KEEP_FILES - 1)
-            .forEach { it.delete() }
     }
 }

@@ -45,6 +45,13 @@ public final class PlusWear {
     public static final String WATCH_PHONE_PLAYING = "/plus_watch_phone_playing";
     public static final String WATCH_PING = "/plus_watch_ping";
     public static final String WATCH_FILE_CHANNEL_PREFIX = "/plus_watch_file/";
+    public static final String WATCH_OFFER_PREFIX = "/plus_watch_offer/";
+    public static final String WATCH_OFFER = "/plus_watch_offer";
+    public static final String WATCH_PLANS = "/plus_watch_plans";
+    public static final String WATCH_PLAN = "/plus_watch_plan";
+    public static final String WATCH_PLANS_DONE = "/plus_watch_plans_done";
+    public static final String WATCH_RECORD = "/plus_watch_record";
+    public static final String WATCH_RECORD_DONE = "/plus_watch_record_done";
     public static final int OUTPUT_SPEAKER = 0;
     public static final int OUTPUT_WIRED = 1;
     public static final int OUTPUT_BLUETOOTH = 2;
@@ -83,6 +90,8 @@ public final class PlusWear {
     private static final String KEY_TOKEN = "token";
     private static final String KEY_SKIP_INTRO = "skip_intro";
     private static final String KEY_SKIP_ENDING = "skip_ending";
+    private static final String KEY_LOADED = "loaded";
+    private static final String KEY_ITEMS = "items";
 
     private PlusWear() {
     }
@@ -137,6 +146,10 @@ public final class PlusWear {
 
     public static String watchPositionPath(long itemId, int position) {
         return WATCH_POSITION_PREFIX + itemId + "/" + position;
+    }
+
+    public static String watchOfferPath(long itemId) {
+        return WATCH_OFFER_PREFIX + itemId;
     }
 
     public static String watchFileChannelPath(long mediaId) {
@@ -317,29 +330,56 @@ public final class PlusWear {
         }
     }
 
+    public static final class WatchPlan {
+        public final long id;
+        public final boolean loaded;
+        @NonNull
+        public final List<WatchMedia> items;
+
+        public WatchPlan(long id, boolean loaded, @NonNull List<WatchMedia> items) {
+            this.id = id;
+            this.loaded = loaded;
+            this.items = items;
+        }
+    }
+
+    @NonNull
+    private static JSONObject watchMediaToJson(@NonNull WatchMedia media) throws JSONException {
+        JSONObject obj = new JSONObject();
+        obj.put(KEY_ID, media.itemId);
+        obj.put(KEY_MEDIA_ID, media.mediaId);
+        obj.put(KEY_TITLE, media.title);
+        obj.put(KEY_FEED_TITLE, media.feedTitle);
+        obj.put(KEY_DURATION, media.duration);
+        obj.put(KEY_POSITION, media.position);
+        obj.put(KEY_SPEED, (double) media.speed);
+        obj.put(KEY_URL, media.url);
+        obj.put(KEY_SIZE, media.size);
+        obj.put(KEY_HAS_FILE, media.hasFile);
+        obj.put(KEY_HOST, media.host);
+        obj.put(KEY_PORT, media.port);
+        obj.put(KEY_TOKEN, media.token);
+        obj.put(KEY_SKIP_INTRO, media.skipIntro);
+        obj.put(KEY_SKIP_ENDING, media.skipEnding);
+        return obj;
+    }
+
+    @NonNull
+    private static WatchMedia watchMediaFromJson(@NonNull JSONObject obj) {
+        return new WatchMedia(obj.optLong(KEY_ID, 0), obj.optLong(KEY_MEDIA_ID, 0), obj.optString(KEY_TITLE, ""),
+                obj.optString(KEY_FEED_TITLE, ""), obj.optInt(KEY_DURATION, 0), obj.optInt(KEY_POSITION, 0),
+                (float) obj.optDouble(KEY_SPEED, 1.0), obj.optString(KEY_URL, ""), obj.optLong(KEY_SIZE, 0),
+                obj.optBoolean(KEY_HAS_FILE, false), obj.optString(KEY_HOST, ""), obj.optInt(KEY_PORT, 0),
+                obj.optString(KEY_TOKEN, ""), obj.optInt(KEY_SKIP_INTRO, 0), obj.optInt(KEY_SKIP_ENDING, 0));
+    }
+
     @NonNull
     public static byte[] watchMediaToBytes(@Nullable WatchMedia media) {
         if (media == null) {
             return new byte[0];
         }
         try {
-            JSONObject obj = new JSONObject();
-            obj.put(KEY_ID, media.itemId);
-            obj.put(KEY_MEDIA_ID, media.mediaId);
-            obj.put(KEY_TITLE, media.title);
-            obj.put(KEY_FEED_TITLE, media.feedTitle);
-            obj.put(KEY_DURATION, media.duration);
-            obj.put(KEY_POSITION, media.position);
-            obj.put(KEY_SPEED, (double) media.speed);
-            obj.put(KEY_URL, media.url);
-            obj.put(KEY_SIZE, media.size);
-            obj.put(KEY_HAS_FILE, media.hasFile);
-            obj.put(KEY_HOST, media.host);
-            obj.put(KEY_PORT, media.port);
-            obj.put(KEY_TOKEN, media.token);
-            obj.put(KEY_SKIP_INTRO, media.skipIntro);
-            obj.put(KEY_SKIP_ENDING, media.skipEnding);
-            return obj.toString().getBytes(StandardCharsets.UTF_8);
+            return watchMediaToJson(media).toString().getBytes(StandardCharsets.UTF_8);
         } catch (JSONException e) {
             return new byte[0];
         }
@@ -351,12 +391,47 @@ public final class PlusWear {
             return null;
         }
         try {
+            return watchMediaFromJson(new JSONObject(new String(data, StandardCharsets.UTF_8)));
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    @NonNull
+    public static byte[] watchPlanToBytes(@NonNull WatchPlan plan) {
+        try {
+            JSONArray items = new JSONArray();
+            for (WatchMedia media : plan.items) {
+                items.put(watchMediaToJson(media));
+            }
+            JSONObject obj = new JSONObject();
+            obj.put(KEY_ID, plan.id);
+            obj.put(KEY_LOADED, plan.loaded);
+            obj.put(KEY_ITEMS, items);
+            return obj.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (JSONException e) {
+            return new byte[0];
+        }
+    }
+
+    @Nullable
+    public static WatchPlan watchPlanFromBytes(@NonNull byte[] data) {
+        if (data.length == 0) {
+            return null;
+        }
+        try {
             JSONObject obj = new JSONObject(new String(data, StandardCharsets.UTF_8));
-            return new WatchMedia(obj.optLong(KEY_ID, 0), obj.optLong(KEY_MEDIA_ID, 0), obj.optString(KEY_TITLE, ""),
-                    obj.optString(KEY_FEED_TITLE, ""), obj.optInt(KEY_DURATION, 0), obj.optInt(KEY_POSITION, 0),
-                    (float) obj.optDouble(KEY_SPEED, 1.0), obj.optString(KEY_URL, ""), obj.optLong(KEY_SIZE, 0),
-                    obj.optBoolean(KEY_HAS_FILE, false), obj.optString(KEY_HOST, ""), obj.optInt(KEY_PORT, 0),
-                    obj.optString(KEY_TOKEN, ""), obj.optInt(KEY_SKIP_INTRO, 0), obj.optInt(KEY_SKIP_ENDING, 0));
+            List<WatchMedia> items = new ArrayList<>();
+            JSONArray array = obj.optJSONArray(KEY_ITEMS);
+            if (array != null) {
+                for (int i = 0; i < array.length(); i++) {
+                    JSONObject item = array.optJSONObject(i);
+                    if (item != null) {
+                        items.add(watchMediaFromJson(item));
+                    }
+                }
+            }
+            return new WatchPlan(obj.optLong(KEY_ID, 0), obj.optBoolean(KEY_LOADED, false), items);
         } catch (JSONException e) {
             return null;
         }

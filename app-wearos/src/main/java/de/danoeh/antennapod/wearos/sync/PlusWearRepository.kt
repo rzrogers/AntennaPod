@@ -24,7 +24,7 @@ object PlusWearRepository {
         if (!PlusWear.isPlusPath(path)) {
             return false
         }
-        if (WatchPlayback.handleReply(path, data)) {
+        if (WatchPlayback.handleReply(path, data) || WatchDownloads.handleReply(context, path, data)) {
             return true
         }
         if (PlusPlayerRepository.handle(path, data)) {
@@ -44,8 +44,15 @@ object PlusWearRepository {
         return true
     }
 
+    fun setOfflinePlaylists(rows: List<PlusWear.PlaylistRow>) {
+        _playlists.value = rows
+    }
+
+    fun setJumpSeconds(seconds: IntArray) {
+        _jumpSeconds.value = seconds
+    }
+
     fun cachedPlaylists(context: Context): List<PlusWear.PlaylistRow> {
-        _playlists.value?.let { return it }
         val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PLAYLISTS, null)
             ?: return emptyList()
         return PlusWear.playlistsFromBytes(json.toByteArray(Charsets.UTF_8))

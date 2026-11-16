@@ -31,6 +31,7 @@ class LibraryActivity : ComponentActivity() {
             MaterialTheme(colorScheme = dynamicColorScheme(this) ?: MaterialTheme.colorScheme) {
                 LibraryScreen(onOpen = { path ->
                     val intent = when (path) {
+                        WATCH_DOWNLOADS -> Intent(this, WatchDownloadsActivity::class.java)
                         PlusWear.PLAYLISTS -> Intent(this, PlaylistListActivity::class.java)
                         WearDataPaths.QUEUE -> Intent(this, PlusQueueActivity::class.java)
                         WearDataPaths.SUBSCRIPTIONS -> Intent(this, FeedListActivity::class.java)
@@ -45,6 +46,8 @@ class LibraryActivity : ComponentActivity() {
         }
     }
 }
+
+private const val WATCH_DOWNLOADS = "watch_downloads"
 
 private val LIBRARY_PATHS = listOf(
     PlusWear.PLAYLISTS,
@@ -73,6 +76,13 @@ fun LibraryScreen(onOpen: (String) -> Unit) {
                     text = stringResource(NavigationNames.getTitleResForPath(path)),
                     iconRes = NavigationNames.getIconResForPath(path),
                     onClick = { onOpen(path) }
+                )
+            }
+            item {
+                ListItem(
+                    text = stringResource(CommonR.string.plus_wear_watch_downloads),
+                    iconRes = R.drawable.ic_plus_watch,
+                    onClick = { onOpen(WATCH_DOWNLOADS) }
                 )
             }
         }

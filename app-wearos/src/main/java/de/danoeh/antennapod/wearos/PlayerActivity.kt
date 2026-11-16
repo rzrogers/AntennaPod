@@ -95,6 +95,7 @@ import de.danoeh.antennapod.wearos.composable.formatSpeed
 import de.danoeh.antennapod.wearos.composable.isRoundScreen
 import de.danoeh.antennapod.wearos.composable.rememberClockText
 import de.danoeh.antennapod.wearos.sync.PlusPlayerRepository
+import de.danoeh.antennapod.wearos.sync.WatchDownloads
 import de.danoeh.antennapod.wearos.sync.WatchPlayback
 import de.danoeh.antennapod.wearos.sync.PlusWearRepository
 import de.danoeh.antennapod.wearos.sync.WearMessageSender
@@ -151,6 +152,9 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     val volume by PlusPlayerRepository.volume.collectAsState()
     val watchActive by WatchPlayback.active.collectAsState()
     val watchOutput by WatchPlayback.output.collectAsState()
+    val moving by WatchPlayback.moving.collectAsState()
+    val pending by WatchPlayback.pending.collectAsState()
+    val nearby by WearMessageSender.nearby.collectAsState()
     val pagerState = rememberPagerState(initialPage = PAGE_PLAYER, pageCount = { 3 })
     val listState = rememberScalingLazyListState()
     val focusRequester = remember { FocusRequester() }
@@ -161,8 +165,14 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
     LaunchedEffect(Unit) {
         WearMessageSender.send(context, PlusWear.JUMP_SECONDS)
         WearMessageSender.send(context, PlusWear.PLAYLISTS)
+        WatchDownloads.schedule(context.applicationContext)
+        WatchDownloads.request(context.applicationContext)
     }
-    val itemId = state?.itemId ?: 0L
+    LaunchedEffect(nearby) {
+        WearMessageSender.send(context, PlusWear.JUMP_SECONDS)
+        WearMessageSender.send(context, PlusWear.PLAYLISTS)
+    }
+    val itemId = pending?.itemId ?: state?.itemId ?: 0L
     LaunchedEffect(itemId) {
         val key = PlusPlayerRepository.artKey(itemId, PlusPlayerRepository.ART_LARGE)
         while (itemId > 0 && !PlusPlayerRepository.art.value.containsKey(key)) {
@@ -234,13 +244,17 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
 
     val current = state
     val playing = current?.playing == true
-    val progress = if (current != null && current.duration > 0) {
+    val loading = moving != null
+    val progress = if (pending != null) {
+        0f
+    } else if (current != null && current.duration > 0) {
         current.position.toFloat() / current.duration.toFloat()
     } else {
         0f
     }
-    val title = current?.title?.ifEmpty { null } ?: stringResource(CommonR.string.no_media_playing_label)
-    val feedTitle = current?.feedTitle ?: ""
+    val title = pending?.title?.ifEmpty { null } ?: current?.title?.ifEmpty { null }
+        ?: stringResource(CommonR.string.no_media_playing_label)
+    val feedTitle = pending?.feedTitle ?: current?.feedTitle ?: ""
     val bitmap = art[PlusPlayerRepository.artKey(itemId, PlusPlayerRepository.ART_LARGE)]
     val onPlayPause: () -> Unit = {
         scope.launch {
@@ -302,6 +316,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
                     bitmap = bitmap,
                     progress = progress,
                     playing = playing,
+                    loading = loading,
                     onPlayPause = onPlayPause
                 )
                 PAGE_PLAYER -> MainPage(
@@ -313,6 +328,7 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
                     bitmap = bitmap,
                     progress = progress,
                     playing = playing,
+                    loading = loading,
                     speed = current?.speed ?: 1f,
                     jumpSeconds = jumpSeconds,
                     watchOutputLabel = when {
@@ -332,7 +348,12 @@ fun PlayerScreen(onOpen: (Class<*>) -> Unit, onSearch: (String) -> Unit) {
                 else -> ListsPage(
                     listState = listState,
                     playlists = playlists,
-                    onSearch = { searchLauncher.launch(searchInputIntent(context)) },
+                    phoneConnected = nearby,
+                    onSearch = {
+                        if (nearby) {
+                            searchLauncher.launch(searchInputIntent(context))
+                        }
+                    },
                     onLibrary = { onOpen(LibraryActivity::class.java) },
                     onPlaylist = { row ->
                         scope.launch {
@@ -380,6 +401,7 @@ private fun SimplePage(
     bitmap: ImageBitmap?,
     progress: Float,
     playing: Boolean,
+    loading: Boolean,
     onPlayPause: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -394,7 +416,13 @@ private fun SimplePage(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(unit * 8))
-            RingPlayButton(size = unit * 72, progress = progress, playing = playing, onClick = onPlayPause)
+            RingPlayButton(
+                size = unit * 72,
+                progress = progress,
+                playing = playing,
+                loading = loading,
+                onClick = onPlayPause
+            )
             Spacer(modifier = Modifier.height(unit * 8))
             EdgeMarqueeText(
                 text = title,
@@ -422,6 +450,7 @@ private fun MainPage(
     bitmap: ImageBitmap?,
     progress: Float,
     playing: Boolean,
+    loading: Boolean,
     speed: Float,
     jumpSeconds: IntArray,
     watchOutputLabel: String?,
@@ -470,7 +499,13 @@ private fun MainPage(
                     background = Color.Transparent,
                     onClick = onJumpBack
                 )
-                RingPlayButton(size = unit * 66, progress = progress, playing = playing, onClick = onPlayPause)
+                RingPlayButton(
+                    size = unit * 66,
+                    progress = progress,
+                    playing = playing,
+                    loading = loading,
+                    onClick = onPlayPause
+                )
                 RoundIconButton(
                     size = unit * 42,
                     iconRes = PlusJumpIcons.forward(jumpSeconds[1]),
@@ -538,6 +573,7 @@ private val PlusWatchLabel = Color(0xFF4DA8E0)
 private fun ListsPage(
     listState: ScalingLazyListState,
     playlists: List<PlusWear.PlaylistRow>?,
+    phoneConnected: Boolean,
     onSearch: () -> Unit,
     onLibrary: () -> Unit,
     onPlaylist: (PlusWear.PlaylistRow) -> Unit
@@ -547,6 +583,15 @@ private fun ListsPage(
         state = listState,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (!phoneConnected) {
+            item {
+                Text(
+                    text = stringResource(CommonR.string.plus_wear_phone_not_connected),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+            }
+        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -555,6 +600,7 @@ private fun ListsPage(
                 PillIconButton(
                     iconRes = R.drawable.ic_plus_search,
                     contentDescription = stringResource(CommonR.string.search_label),
+                    enabled = phoneConnected,
                     onClick = onSearch
                 )
                 PillIconButton(
@@ -591,9 +637,15 @@ private fun ListsPage(
 }
 
 @Composable
-private fun PillIconButton(iconRes: Int, contentDescription: String, onClick: () -> Unit) {
+private fun PillIconButton(
+    iconRes: Int,
+    contentDescription: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
+            .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
             .size(width = 68.dp, height = 48.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)

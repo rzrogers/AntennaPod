@@ -1,5 +1,10 @@
 package de.danoeh.antennapod.wearos.composable
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.annotation.DrawableRes
@@ -202,8 +207,19 @@ fun RingPlayButton(
     size: Dp,
     progress: Float,
     playing: Boolean,
+    loading: Boolean = false,
     onClick: () -> Unit
 ) {
+    val spin = if (loading) {
+        rememberInfiniteTransition(label = "loading").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(durationMillis = 1000, easing = LinearEasing)),
+            label = "spin"
+        ).value
+    } else {
+        0f
+    }
     Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = this.size.width * 0.05f
@@ -218,7 +234,17 @@ fun RingPlayButton(
                 size = arcSize,
                 style = Stroke(width = stroke)
             )
-            if (progress > 0f) {
+            if (loading) {
+                drawArc(
+                    color = Color.White,
+                    startAngle = spin - 90f,
+                    sweepAngle = 90f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                )
+            } else if (progress > 0f) {
                 drawArc(
                     color = Color.White,
                     startAngle = -90f,

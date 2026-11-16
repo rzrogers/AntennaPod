@@ -1186,4 +1186,22 @@
     <string name="plus_wear_stay_on_phone" tools:ignore="UnusedResources">Stay on phone</string>
     <string name="plus_wear_move_failed" tools:ignore="UnusedResources">Couldn\'t move to the watch</string>
     <string name="plus_wear_connect_earbuds" tools:ignore="UnusedResources">Connect earbuds to the watch first</string>
+    <string name="plus_wear_watch_downloads" tools:ignore="UnusedResources">Watch downloads</string>
+    <string name="plus_wear_storage_used" tools:ignore="UnusedResources">%1$s of %2$s used</string>
+    <string name="plus_wear_keep_on_watch" tools:ignore="UnusedResources">Keep on watch</string>
+    <string name="plus_wear_amount_off" tools:ignore="UnusedResources">Off</string>
+    <string name="plus_wear_amount_hour" tools:ignore="UnusedResources">Next hour</string>
+    <string name="plus_wear_amount_hours" tools:ignore="UnusedResources">Next %1$d hours</string>
+    <string name="plus_wear_amount_all" tools:ignore="UnusedResources">Everything</string>
+    <plurals name="plus_wear_amount_summary" tools:ignore="UnusedResources">
+        <item quantity="one">%1$d episode · %2$s</item>
+        <item quantity="other">%1$d episodes · %2$s</item>
+    </plurals>
+    <string name="plus_wear_amount_unknown" tools:ignore="UnusedResources">Needs the phone once</string>
+    <string name="plus_wear_use_lte" tools:ignore="UnusedResources">Use LTE</string>
+    <string name="plus_wear_wifi_only" tools:ignore="UnusedResources">Wi-Fi only</string>
+    <string name="plus_wear_lte_allowed" tools:ignore="UnusedResources">Wi-Fi first, then LTE</string>
+    <string name="plus_wear_phone_not_connected" tools:ignore="UnusedResources">Phone not connected</string>
+    <string name="plus_wear_on_watch" tools:ignore="UnusedResources">%1$s on watch</string>
+    <string name="plus_wear_not_on_watch" tools:ignore="UnusedResources">Not on watch</string>
 </resources>
